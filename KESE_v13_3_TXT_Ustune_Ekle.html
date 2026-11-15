@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#172554">
+<title>KESE v13.3 | TXT Üstüne Ekleme</title>
+<style>
+:root{--bg:#f4f6fb;--panel:#fff;--ink:#172033;--muted:#68738a;--line:#e4e8f0;--blue:#3157d5;--blue2:#eaf0ff;--green:#16845b;--red:#c34252;--amber:#a56a12;--shadow:0 10px 30px rgba(28,42,80,.07)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,input,textarea,select{font:inherit}button{cursor:pointer;border:0;border-radius:12px;padding:11px 15px;font-weight:650;background:var(--blue);color:#fff}button.secondary{background:var(--blue2);color:var(--blue)}button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}button.danger{background:#fff0f1;color:var(--red)}button:disabled{opacity:.45;cursor:not-allowed}
+header{background:#172554;color:white;padding:18px max(18px,calc((100vw - 1050px)/2));display:flex;align-items:center;justify-content:space-between;gap:12px}header h1{font-size:22px;margin:0;letter-spacing:.4px}header small{color:#cbd5f5}
+main{max-width:1050px;margin:22px auto;padding:0 16px 50px}.tabs{display:flex;gap:8px;overflow:auto;padding:5px 0 15px}.tabs button{white-space:nowrap;background:transparent;color:var(--muted);border:1px solid var(--line)}.tabs button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.panel,.stat,.cardbox{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}.stat span{color:var(--muted);font-size:13px}.stat strong{display:block;font-size:27px;margin-top:4px}
+h2{font-size:20px;margin:0 0 14px}h3{font-size:16px;margin:0 0 10px}.muted{color:var(--muted)}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.field{display:grid;gap:6px;margin:10px 0}.field label{font-size:13px;color:var(--muted);font-weight:650}input,textarea,select{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#fff;color:var(--ink)}textarea{min-height:95px;resize:vertical}.list{display:grid;gap:9px}.item{border:1px solid var(--line);border-radius:13px;padding:13px;display:flex;gap:12px;align-items:center;justify-content:space-between}.item p{margin:3px 0 0;color:var(--muted);font-size:13px}.pill{font-size:12px;background:var(--blue2);color:var(--blue);padding:5px 9px;border-radius:99px;white-space:nowrap}
+.progress{height:9px;background:#edf0f6;border-radius:99px;overflow:hidden}.progress i{display:block;height:100%;background:var(--green);border-radius:99px}
+.study{max-width:700px;margin:auto}.studycard{min-height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px}.studycard .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}.studycard .face{font-size:25px;font-weight:750;margin:20px 0;white-space:pre-wrap;overflow-wrap:anywhere}.studycard .answer{font-size:18px;white-space:pre-wrap;overflow-wrap:anywhere}.rating{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.rating button{padding:14px 5px}.rating .again{background:#fff0f1;color:#bd3447}.rating .hard{background:#fff4e5;color:#98600d}.rating .good{background:#e8f7ef;color:#13744e}.rating .easy{background:#eaf0ff;color:#3157d5}
+.hidden{display:none!important}.empty{text-align:center;padding:35px 15px;color:var(--muted)}.note{background:#fff8e8;border:1px solid #f1dfb8;color:#795719;padding:12px;border-radius:12px;font-size:13px}.small{font-size:12px;color:var(--muted)}.sectiongap{margin-top:16px}
+@media(max-width:700px){.grid{grid-template-columns:1fr 1fr}main{margin-top:14px}.panel{padding:15px}.rating{grid-template-columns:repeat(2,1fr)}header{padding:15px 17px}}
+@media(max-width:420px){.grid{grid-template-columns:1fr 1fr}.stat strong{font-size:23px}.item{align-items:flex-start}}
+
+.import-area{margin-top:18px;padding:18px;border:2px dashed #cbd5e1;border-radius:16px;background:#f8fafc}
+.import-area h3{margin:0 0 8px;font-size:18px}
+.import-area p{margin:7px 0;color:#64748b}
+.import-button{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:#e8efff;color:#3156c9;padding:13px 18px;border-radius:12px;font-weight:750;cursor:pointer;flex-wrap:wrap}
+.import-button input{display:block;max-width:210px;font-size:14px;color:#334155}
+
+.card-row{border:1px solid var(--line);border-radius:13px;padding:11px 12px;display:grid;grid-template-columns:minmax(0,1fr);gap:8px;background:#fff}
+.card-question{font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.card-meta{font-size:12px;color:var(--muted)}
+.card-actions{display:flex;flex-wrap:wrap;gap:7px}
+.card-actions button{padding:8px 10px;font-size:13px}
+
+
+.page-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:6px}
+.page-number{padding:8px 4px;border:1px solid var(--line);background:var(--panel);border-radius:8px;font-size:13px}
+.page-number.active{background:var(--accent);color:white}
+button:disabled{opacity:.4;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div id="storageLoading" style="position:fixed;inset:0;z-index:9999;background:#f4f6fb;display:grid;place-items:center;padding:24px;text-align:center;color:#172033;font:600 16px system-ui">KESE verileri güvenli şekilde yükleniyor…</div>
+<header><div><h1>◈ KESE</h1><small>Çok desteli kese sistemi · v13.3</small></div><button class="secondary" onclick="showTab('settings')">⚙ Ayarlar</button></header>
+<main>
+<nav class="tabs">
+<button class="active" data-tab="home" onclick="showTab('home')">Genel Bakış</button>
+<button data-tab="study" onclick="showTab('study')">Çalış</button>
+<button data-tab="cards" onclick="showTab('cards')">Kartlar</button>
+<button data-tab="decks" onclick="showTab('decks')">Desteler</button>
+<button data-tab="phases" onclick="showTab('phases')">Keseler</button>
+<button data-tab="settings" onclick="showTab('settings')">Yedekleme</button>
+</nav>
+<section id="home" class="view">
+<div class="grid" id="stats"></div>
+<div class="panel sectiongap"><div class="row between"><h2>Bugünkü çalışma</h2><button onclick="showTab('study')">Çalışmaya başla</button></div><div id="homeProgress"></div></div>
+<div class="panel sectiongap"><h2>Sonraki adım</h2><p class="muted">Bir deste oluştur, kartlarını ekle ve kendi tekrar hedefini belirle. Kese, her cevapta kartın tekrar sayısını bir artırır.</p></div>
+</section>
+<section id="study" class="view hidden">
+<div class="study">
+<div class="row between"><div><h2>Çalışma oturumu</h2><div class="muted" id="studyMeta">Deste seçilmedi</div></div><select id="studyDeck" style="max-width:190px" onchange="startStudy()"></select></div>
+<div class="cardbox studycard sectiongap" id="studyCard"><div class="empty">Çalışmaya başlamak için bir deste seç.</div></div>
+<div class="sectiongap"><button class="secondary" id="revealBtn" style="width:100%;padding:14px" onclick="reveal()">Cevabı göster</button></div>
+<div class="row between sectiongap"><button class="secondary" id="previousBtn" onclick="previousCard()">← Önceki</button><span class="small" id="studyCount"></span><button class="secondary" id="continueBtn" onclick="continueCard()">Devam et →</button></div>
+<div class="sectiongap"><button id="activeRecallBtn" style="width:100%;padding:17px;font-size:18px" onclick="activeRecall()">✓ Active Recall · +1</button></div>
+<div class="sectiongap"><button class="secondary" id="pageToggle" onclick="togglePageIndex()">☷ Cümle numarasını seç</button><div id="pageIndex" class="hidden sectiongap"></div></div>
+<p class="small">Active Recall her basışta bu cümlenin tekrarını +1 artırır. 10 tekrara ulaşınca sonraki keseye geçer. Devam et ve Önceki ile cümleler arasında gezebilirsin.</p>
+</div>
+</section>
+<section id="cards" class="view hidden">
+<div class="panel"><h2>Kart oluştur</h2><div class="field"><label>Deste</label><select id="cardDeck"></select></div><div class="field"><label>Ön yüz / Soru</label><textarea id="front" placeholder="Örneğin: Router nedir?"></textarea></div><div class="field"><label>Arka yüz / Cevap</label><textarea id="back" placeholder="Cevabı yaz..."></textarea></div><div class="row"><button onclick="addCard()">Kart ekle</button><button class="secondary" onclick="bulkToggle()">Toplu kart ekle</button></div>
+<div class="import-area sectiongap"><h3>Anki kartlarını aktar</h3><p class="small">Anki’den dışa aktardığın .txt dosyasını seç. Dosyadaki tüm kartlar yukarıda seçili olan desteye mevcut kartların üzerine eklenecek. Eski kartlar silinmez.</p><label class="import-button">📥 TXT dosyası seç <input type="file" accept=".txt,text/plain" onchange="importTxt(event)"></label><p class="small">TAB ile ayrılmış dosyalarda ilk sütun soru, ikinci sütun cevap olarak alınır.</p></div>
+<div id="bulkBox" class="hidden sectiongap"><p class="small">Her satıra bir kart yaz. Soru ve cevap arasına TAB koy.</p><textarea id="bulkText" placeholder="Router nedir?&#9;Ağları birbirine bağlar."></textarea><button onclick="bulkAdd()">Toplu eklemeyi tamamla</button></div></div>
+<div class="panel sectiongap"><h2>Desteler ve kartları</h2><p class="small">Kartlar başlangıçta tek tek yüklenmez. İlgili destenin kartlarını görmek için düğmeye bas.</p><div id="cardDeckOverview" class="list"></div><div id="selectedDeckCards" class="sectiongap"></div></div>
+</section>
+<section id="decks" class="view hidden">
+<div class="panel"><h2>Deste oluştur</h2><div class="row"><input id="deckName" placeholder="Örneğin: İngilizce A1"><button onclick="addDeck()">Deste ekle</button></div></div>
+<div class="panel sectiongap"><h2>Destelerim</h2><div id="deckList" class="list"></div></div>
+</section>
+<section id="phases" class="view hidden">
+<div class="panel"><h2>Keseler</h2><p class="muted">Her destenin keseleri bağımsız ilerler. Bir sonraki kese, kapasitesi dolmadan çalışmaya başlamaz.</p><div class="field"><label>Deste</label><select id="phaseDeck" onchange="renderPhases()"></select></div><div id="phaseList" class="list"></div></div>
+<div class="panel sectiongap"><h2>Kese sistemi</h2><p class="small">Her cümle, bulunduğu kesede 10 Active Recall tamamlayınca bir sonraki keseye geçer. Kese kapasiteleri 100, 200, 400, 800... şeklinde iki katına çıkar ve ihtiyaç oldukça devam eder. Bir kese kapasitesine ilk kez ulaşınca çalışmaya açılır ve açık kalır.</p></div></section>
+<section id="settings" class="view hidden">
+
+<div class="panel sectiongap"><h2>Yedekleme</h2><p class="muted">Kartların, destelerin, sayaçların ve aşamaların JSON yedeğini alabilir veya geri yükleyebilirsin.</p><div class="row"><button onclick="exportData()">JSON yedeği indir</button><label class="secondary" style="padding:11px 14px;border-radius:12px;font-weight:650;cursor:pointer">Yedek içe aktar <input type="file" accept=".json,application/json" style="display:none" onchange="importData(event)"></label></div><div class="note sectiongap">Veriler bu tarayıcıda IndexedDB içinde saklanır. Cihaz veya tarayıcı verilerini temizlersen silinebilir. Düzenli olarak JSON yedeği al. Eski localStorage verin ilk açılışta otomatik aktarılır.</div><div class="sectiongap"><button class="danger" onclick="resetAll()">Bütün verileri sil</button></div></div>
+</section>
+</main>
+<script>
+const KEY='kese_html_v1';
+const IDB_NAME='KESE_DB_v1', IDB_STORE='appState';
+let idb=null, storageMode='indexeddb', saveQueue=Promise.resolve();
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+function fresh(){return {decks:[{id:'default',name:'Varsayılan deste'}],cards:[],batches:[],unlockedBaskets:{}}}
+function loadLegacy(){
+ try{
+  const x=JSON.parse(localStorage.getItem(KEY));
+  if(!x||!Array.isArray(x.cards)||!Array.isArray(x.decks))return null;
+  x.batches=Array.isArray(x.batches)?x.batches:[];
+  x.unlockedBaskets=x.unlockedBaskets||{};
+  return x;
+ }catch{return null}
+}
+function openKeseDB(){return new Promise((resolve,reject)=>{
+ if(!('indexedDB' in window))return reject(new Error('Bu tarayıcı IndexedDB desteklemiyor.'));
+ const request=indexedDB.open(IDB_NAME,1);
+ request.onupgradeneeded=()=>{const d=request.result;if(!d.objectStoreNames.contains(IDB_STORE))d.createObjectStore(IDB_STORE,{keyPath:'id'});};
+ request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error||new Error('Veritabanı açılamadı.'));
+ });}
+function readKeseState(){return new Promise((resolve,reject)=>{const tx=idb.transaction(IDB_STORE,'readonly'),r=tx.objectStore(IDB_STORE).get('main');r.onsuccess=()=>resolve(r.result?.data||null);r.onerror=()=>reject(r.error);});}
+function writeKeseState(data){return new Promise((resolve,reject)=>{const tx=idb.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).put({id:'main',data});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Kayıt işlemi iptal edildi.'));});}
+let db=fresh(),current=null,studyIndex=0,answered=0;
+async function initializeStorage(){
+ const screen=document.getElementById('storageLoading');
+ try{
+  idb=await openKeseDB();
+  const saved=await readKeseState();
+  if(saved&&Array.isArray(saved.cards)&&Array.isArray(saved.decks)){
+   db={...fresh(),...saved,batches:Array.isArray(saved.batches)?saved.batches:[],unlockedBaskets:saved.unlockedBaskets||{}};
+  }else{
+   const legacy=loadLegacy();
+   db=legacy||fresh();
+   await writeKeseState(db);
+   if(legacy)console.info('KESE: localStorage verileri IndexedDB’ye aktarıldı.');
+  }
+  storageMode='indexeddb';
+ }catch(error){
+  console.error('IndexedDB başlatılamadı:',error);
+  storageMode='localstorage';db=loadLegacy()||fresh();
+  alert('IndexedDB açılamadı. Uygulama geçici olarak eski tarayıcı hafızasını kullanacak. Tarayıcı ayarlarını kontrol et.');
+ }
+ renderAll();
+ if(screen)screen.remove();
+}
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function deckName(id){return db.decks.find(d=>d.id===id)?.name||'Silinmiş deste'}
+function basketCapacity(n){return 100*Math.pow(2,n-1)}
+function basketCount(deck,n){return db.cards.filter(c=>c.deck===deck&&Number(c.basket)===n).length}
+function basketIsOpen(deck,n){return n===1||!!db.unlockedBaskets[deck+'_'+n]||basketCount(deck,n)>=basketCapacity(n)}
+function basketStage(c){return Number(c.basketRepeats)||0}
+function ensureBatches(){
+ db.cards.forEach((c,i)=>{
+  c.count=Math.max(0,Math.floor(Number(c.count)||0));
+  if(!Number.isFinite(Number(c.basket))||Number(c.basket)<1){
+   c.basket=Math.floor(c.count/10)+1;
+   c.basketRepeats=c.count%10;
+  }else if(c.basketRepeats===undefined){
+   const old=db.batches.find(b=>b.id===c.batchId);
+   const local=old?Number(c.stageCounts?.[old.id]):NaN;
+   c.basketRepeats=Number.isFinite(local)?Math.max(0,Math.min(9,local)):c.count%10;
+  }
+  c.basket=Math.max(1,Math.floor(Number(c.basket)||1));
+  c.basketRepeats=Math.max(0,Math.min(9,Math.floor(Number(c.basketRepeats)||0)));
+  if(!Number.isFinite(Number(c.order)))c.order=Number(c.created)||i;
+ });
+ db.decks.forEach(d=>{
+  const first= db.cards.filter(c=>c.deck===d.id&&Number(c.basket)===1).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
+  first.slice(100).forEach(c=>{c.basket=0;c.basketRepeats=0;});
+  if(first.length<100){
+   const waiting=db.cards.filter(c=>c.deck===d.id&&Number(c.basket)===0).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
+   waiting.slice(0,100-first.length).forEach(c=>{c.basket=1;c.basketRepeats=0;});
+  }
+  for(let n=2;n<=12;n++)if(basketCount(d.id,n)>=basketCapacity(n))db.unlockedBaskets[d.id+'_'+n]=true;
+ });
+}
+function save(){ensureBatches();const snapshot=JSON.parse(JSON.stringify(db));if(storageMode==='indexeddb'&&idb){saveQueue=saveQueue.then(()=>writeKeseState(snapshot)).catch(error=>{console.error('KESE kayıt hatası:',error);alert('Veriler IndexedDB’ye kaydedilemedi. Lütfen JSON yedeği al ve tarayıcıyı kapatma.');});}else{try{localStorage.setItem(KEY,JSON.stringify(snapshot));}catch(error){alert('Yerel kayıt yapılamadı: '+error.message);}}renderAll()}
+function addDeck(){
+ const n=document.getElementById('deckName').value.trim();if(!n)return alert('Deste adı yaz.');
+ db.decks.push({id:uid(),name:n});document.getElementById('deckName').value='';save();
+}
+function addCard(){
+ const deck=document.getElementById('cardDeck').value,front=document.getElementById('front').value.trim(),back=document.getElementById('back').value.trim();
+ if(!front||!back)return alert('Soru ve cevabı doldur.');
+ db.cards.push({id:uid(),deck,front,back,count:0,basket:1,basketRepeats:0,order:Date.now(),created:Date.now()});
+ document.getElementById('front').value='';document.getElementById('back').value='';save();
+}
+function bulkToggle(){document.getElementById('bulkBox').classList.toggle('hidden')}
+function plainImportedField(value){
+ const box=document.createElement('div');
+ box.innerHTML=String(value).replace(/<br\s*\/?\s*>/gi,'\n').replace(/<\/(p|div|li|h[1-6])\s*>/gi,'\n');
+ return (box.textContent||box.innerText||'').replace(/\u00a0/g,' ').trim();
+}
+function importTxt(ev){
+ const file=ev.target.files&&ev.target.files[0];if(!file)return;
+ const deck=document.getElementById('cardDeck').value,reader=new FileReader();
+ reader.onload=()=>{
+  try{
+   const lines=String(reader.result||'').replace(/^\uFEFF/,'').split(/\r\n|\n|\r/).filter(x=>x.trim()&&!x.trimStart().startsWith('#'));
+   if(!lines.length)throw Error('Dosyada kart bulunamadı.');
+   const first=lines[0].split('\t'),hasDeck=first.length>=4,fi=hasDeck?1:0,bi=hasDeck?2:1;
+   const f=plainImportedField(first[fi]||''),b=plainImportedField(first[bi]||'');
+   if(!f||!b)throw Error('Ön/arka yüz sütunları boş görünüyor.');
+   const proceed=confirm('ÖNİZLEME\n\nÖn yüz: '+f+'\nArka yüz: '+b+'\n\n'+lines.length+' kart seçili desteye EKLENECEK.\nMevcut kartlar silinmeyecek.');
+   if(!proceed){ev.target.value='';return;}
+   let added=0;
+   lines.forEach(line=>{
+    const fields=line.split('\t'),front=plainImportedField(fields[fi]??''),back=plainImportedField(fields[bi]??'');
+    if(front&&back){db.cards.push({id:uid(),deck,front,back,count:0,basket:1,basketRepeats:0,order:Date.now()+added,created:Date.now()+added});added++;}
+   });
+   save();alert(added+' kart seçili desteye eklendi. Destede toplam '+db.cards.filter(c=>c.deck===deck).length+' kart var. Ön yüz '+(fi+1)+'. sütun, arka yüz '+(bi+1)+'. sütun.');
+  }catch(err){alert('TXT dosyası okunamadı: '+err.message)}
+  ev.target.value='';
+ };
+ reader.onerror=()=>{alert('Dosya okunamadı.');ev.target.value=''};
+ reader.readAsText(file,'UTF-8');
+}
+function bulkAdd(){
+ const deck=document.getElementById('cardDeck').value,lines=document.getElementById('bulkText').value.split(/\r?\n/);let n=0;
+ lines.forEach(line=>{const p=line.split('\t');if(p.length>=2&&p[0].trim()&&p.slice(1).join('\t').trim()){db.cards.push({id:uid(),deck,front:p[0].trim(),back:p.slice(1).join('\t').trim(),count:0,basket:1,basketRepeats:0,order:Date.now()+n,created:Date.now()+n});n++;}});
+ document.getElementById('bulkText').value='';save();alert(n+' kart eklendi.');
+}
+function deleteCard(id){if(confirm('Bu kart silinsin mi?')){db.cards=db.cards.filter(c=>c.id!==id);save()}}
+function editCard(id){const c=db.cards.find(x=>x.id===id);if(!c)return;const f=prompt('Soru:',c.front);if(f===null)return;const b=prompt('Cevap:',c.back);if(b===null)return;c.front=f;c.back=b;save()}
+function editCardCount(id){
+ const c=db.cards.find(x=>x.id===id);if(!c)return;const v=prompt('Toplam Active Recall sayısı:',String(c.count||0));if(v===null)return;
+ if(!/^\d+$/.test(v.trim()))return alert('0 veya pozitif tam sayı gir.');
+ c.count=Number(v);c.basket=Math.floor(c.count/10)+1;c.basketRepeats=c.count%10;save();
+ if(!document.getElementById('study').classList.contains('hidden'))startStudy();
+}
+function progressBaskets(){
+ db.decks.forEach(d=>{
+  const max=Math.max(1,...db.cards.filter(c=>c.deck===d.id).map(c=>Math.max(1,Number(c.basket)||1)));
+  for(let n=2;n<=max;n++)if(basketCount(d.id,n)>=basketCapacity(n))db.unlockedBaskets[d.id+'_'+n]=true;
+ });
+}
+function cardsInBasket(deck,n){return db.cards.filter(c=>c.deck===deck&&Number(c.basket)===n).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));}
+function activeBasket(deck){
+ const ns=db.cards.filter(c=>c.deck===deck).map(c=>Math.max(1,Number(c.basket)||1));
+ const max=Math.max(1,...ns);
+ for(let n=1;n<=max;n++){if(basketCount(deck,n)>0)return n;}
+ return 1;
+}
+function getStudyCards(){const deck=document.getElementById('studyDeck')?.value||db.decks[0]?.id,n=activeBasket(deck);return {deck,n,cards:cardsInBasket(deck,n)};}
+function startStudy(){studyIndex=0;answered=0;nextCard()}
+function drawPageIndex(cards){
+ const box=document.getElementById('pageIndex');if(!box)return;
+ box.innerHTML='<div class="page-grid">'+cards.map((c,i)=>`<button class="page-number ${i===studyIndex?'active':''}" onclick="goToCard(${i})">${i+1}</button>`).join('')+'</div>';
+}
+function togglePageIndex(){const box=document.getElementById('pageIndex');if(!box)return;box.classList.toggle('hidden');if(!box.classList.contains('hidden'))drawPageIndex(getStudyCards().cards)}
+function goToCard(i){const cards=getStudyCards().cards;if(i>=0&&i<cards.length){studyIndex=i;nextCard()}}
+function nextCard(){
+ progressBaskets();
+ const {deck,n,cards}=getStudyCards(),box=document.getElementById('studyCard'),prev=document.getElementById('previousBtn'),cont=document.getElementById('continueBtn');
+ if(n>1&&!basketIsOpen(deck,n)){
+  current=null;box.innerHTML=`<div class="empty"><strong>${n}. Kese kilitli.</strong><br>Açılması için ${basketCapacity(n)} kartın bu keseye ulaşması gerekiyor. Şu an ${basketCount(deck,n)}/${basketCapacity(n)} kart var.</div>`;
+  document.getElementById('activeRecallBtn').classList.add('hidden');prev.disabled=true;cont.disabled=true;
+  document.getElementById('studyCount').textContent='Kilitli';document.getElementById('studyMeta').textContent=`${n}. Kese · ${basketCount(deck,n)}/${basketCapacity(n)}`;return;
+ }
+ if(!cards.length){
+  current=null;box.innerHTML=`<div class="empty"><strong>${n}. Kese beklemede.</strong><br>Bu kesenin açılması için ${basketCapacity(n)} cümlenin buraya ulaşması gerekiyor. Şu an ${basketCount(deck,n)}/${basketCapacity(n)} cümle var.</div>`;
+  document.getElementById('activeRecallBtn').classList.add('hidden');prev.disabled=true;cont.disabled=true;
+  document.getElementById('studyCount').textContent='Beklemede';document.getElementById('studyMeta').textContent=`${n}. Kese · ${basketCount(deck,n)}/${basketCapacity(n)}`;return;
+ }
+ if(studyIndex>=cards.length)studyIndex=0;
+ current=cards[studyIndex];document.getElementById('activeRecallBtn').classList.remove('hidden');const revealBtn=document.getElementById('revealBtn');if(revealBtn){revealBtn.textContent='Cevabı göster';revealBtn.disabled=false;}
+ prev.disabled=studyIndex===0;cont.disabled=studyIndex===cards.length-1;
+ box.innerHTML=`<div class="label">${esc(deckName(deck))} · ${n}. Kese</div><div class="face">${esc(current.front)}</div><div class="small">Sıra: ${studyIndex+1}/${cards.length} · Toplam Active Recall: ${current.count} · Bu kesedeki tekrar: ${basketStage(current)}/10</div><div id="answer" class="answer hidden">${esc(current.back)}</div>`;
+ document.getElementById('studyCount').textContent=`${studyIndex+1}. / ${cards.length}. cümle`;
+ document.getElementById('studyMeta').textContent=`${n}. Kese · ${basketCount(deck,n)}/${basketCapacity(n)}`;
+ const pi=document.getElementById('pageIndex');if(pi&&!pi.classList.contains('hidden'))drawPageIndex(cards);
+}
+function reveal(){const a=document.getElementById('answer'),b=document.getElementById('revealBtn');if(a){a.classList.remove('hidden');if(b){b.textContent='Cevap gösterildi';b.disabled=true;}}}
+function activeRecall(){
+ if(!current)return;
+ const old=Number(current.basket)||1;
+ current.count=(Number(current.count)||0)+1;current.basketRepeats=basketStage(current)+1;answered++;
+ if(current.basketRepeats>=10){current.basket=old+1;current.basketRepeats=0;current.order=Date.now()+Math.random();progressBaskets();}
+ save();nextCard();
+}
+function continueCard(){const cards=getStudyCards().cards;if(studyIndex<cards.length-1){studyIndex++;nextCard()}}
+function previousCard(){if(studyIndex>0){studyIndex--;nextCard()}}
+function exportData(){
+ const blob=new Blob([JSON.stringify({...db,format:'kese-backup-v3',exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kese-yedek-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);
+}
+function importData(ev){
+ const file=ev.target.files[0];if(!file)return;const r=new FileReader();
+ r.onload=()=>{try{const x=JSON.parse(r.result);if(!Array.isArray(x.cards)||!Array.isArray(x.decks))throw Error();if(!confirm('İçe aktarma mevcut verilerin üzerine yazacak. Devam edilsin mi?'))return;db={...fresh(),...x,batches:Array.isArray(x.batches)?x.batches:[],unlockedBaskets:x.unlockedBaskets||{}};ensureBatches();save();alert('Yedek geri yüklendi.')}catch{alert('Geçersiz veya uyumsuz yedek dosyası.')}};r.readAsText(file);ev.target.value='';
+}
+function resetAll(){if(confirm('Tüm kartlar ve desteler kalıcı olarak silinsin mi?')){db=fresh();save()}}
+function renderHome(){
+ const total=db.cards.length,progressed=db.cards.filter(c=>Number(c.basket||1)>1).length;
+ document.getElementById('stats').innerHTML=[['Toplam kart',total],['İlk keseyi geçen',progressed],['Toplam Active Recall',db.cards.reduce((a,c)=>a+(Number(c.count)||0),0)]].map(([a,b])=>`<div class="stat"><span>${a}</span><strong>${b}</strong></div>`).join('');
+ document.getElementById('homeProgress').innerHTML='<p class="muted">Cümleler sırayla çalışılır. Her cümle bulunduğu kesede 10 Active Recall tamamlayınca bir sonraki keseye geçer.</p>';
+}
+function renderCards(){
+ const root=document.getElementById('cardDeckOverview');if(!root)return;
+ root.innerHTML=db.decks.map(d=>{const n=db.cards.filter(c=>c.deck===d.id).length;return `<div class="item"><div><strong>${esc(d.name)}</strong><p>${n} kart</p></div><button class="ghost" onclick="showDeckCards('${d.id}')">Kartları gör</button></div>`}).join('')||'<div class="empty">Henüz deste yok.</div>';
+ const pane=document.getElementById('selectedDeckCards');if(pane&&!pane.dataset.deck)pane.innerHTML='<div class="empty">Kartları görmek için bir deste seç.</div>';
+}
+function showDeckCards(id){
+ const pane=document.getElementById('selectedDeckCards'),d=db.decks.find(x=>x.id===id);if(!pane||!d)return;
+ pane.dataset.deck=id;const arr=db.cards.filter(c=>c.deck===id);
+ pane.innerHTML=`<div class="row between"><h3>${esc(d.name)} · ${arr.length} kart</h3><button class="ghost" onclick="closeDeckCards()">Kapat</button></div><input id="deckCardSearch" placeholder="Bu destede ara..." oninput="filterDeckCards()" style="width:100%;margin:10px 0"><div id="deckCardRows" class="list"></div>`;
+ drawDeckCards(arr);
+}
+function drawDeckCards(arr){
+ const box=document.getElementById('deckCardRows');if(!box)return;
+ box.innerHTML=arr.length?arr.map(c=>`<div class="card-row"><div class="card-question">${esc(c.front.slice(0,180))}</div><div class="card-meta">Tekrar: <b>${Number(c.count)||0}</b></div><div class="card-actions"><button class="ghost" onclick="editCard('${c.id}')">Düzenle</button><button class="ghost" onclick="editCardCount('${c.id}')">Sayacı düzelt</button><button class="danger" onclick="deleteCard('${c.id}')">Sil</button></div></div>`).join(''):'<div class="empty">Bu destede kart yok.</div>';
+}
+function filterDeckCards(){const deck=document.getElementById('selectedDeckCards')?.dataset.deck,q=(document.getElementById('deckCardSearch')?.value||'').toLocaleLowerCase('tr');drawDeckCards(db.cards.filter(c=>c.deck===deck&&(c.front+' '+c.back).toLocaleLowerCase('tr').includes(q)))}
+function closeDeckCards(){const p=document.getElementById('selectedDeckCards');if(p){p.dataset.deck='';p.innerHTML='<div class="empty">Kartları görmek için bir deste seç.</div>'}}
+function renderDecks(){
+ document.getElementById('deckList').innerHTML=db.decks.map(d=>{const n=db.cards.filter(c=>c.deck===d.id).length;return `<div class="item"><div><strong>${esc(d.name)}</strong><p>${n} kart</p></div><div class="row"><button class="ghost" onclick="renameDeck('${d.id}')">Adını değiştir</button><button class="danger" onclick="deleteDeck('${d.id}')">Desteyi sil</button></div></div>`}).join('')||'<div class="empty">Henüz deste yok.</div>';
+}
+function renameDeck(id){const d=db.decks.find(x=>x.id===id);if(!d)return;const n=prompt('Yeni deste adı:',d.name);if(n===null)return;if(!n.trim())return alert('Deste adı boş olamaz.');d.name=n.trim();save()}
+function deleteDeck(id){
+ const d=db.decks.find(x=>x.id===id);if(!d)return;const n=db.cards.filter(c=>c.deck===id).length;
+ if(!confirm(`"${d.name}" destesi ve içindeki ${n} kart silinsin mi?`))return;
+ db.cards=db.cards.filter(c=>c.deck!==id);db.decks=db.decks.filter(x=>x.id!==id);
+ Object.keys(db.unlockedBaskets).filter(k=>k.startsWith(id+'_')).forEach(k=>delete db.unlockedBaskets[k]);save();
+}
+function renderPhases(){
+ const sel=document.getElementById('phaseDeck');
+ const previous=sel?.value;
+ if(sel){sel.innerHTML=options(previous);if(previous&&db.decks.some(d=>d.id===previous))sel.value=previous;}
+ const deck=sel?.value||db.decks[0]?.id;
+ if(!db.decks.some(d=>d.id===deck)){document.getElementById('phaseList').innerHTML='<div class="empty">Önce bir deste oluştur.</div>';return;}
+ const nums=db.cards.filter(c=>c.deck===deck).map(c=>Math.max(1,Number(c.basket)||1));
+ const max=Math.max(1,...nums);
+ let out='';
+ for(let n=1;n<=max;n++){
+  const count=basketCount(deck,n),cap=basketCapacity(n),open=basketIsOpen(deck,n);
+  out+=`<div class="item" style="display:block"><div class="row between"><strong>${n}. Kese</strong><span class="pill">${count}/${cap}</span></div><div class="progress sectiongap"><i style="width:${Math.min(100,count/cap*100)}%"></i></div><p class="small">${open?'Çalışmaya açık':'Kilitli · Kapasite dolunca açılacak'} · Kart başına 10 Active Recall</p></div>`;
+ }
+ document.getElementById('phaseList').innerHTML=out||'<div class="empty">Bu destede henüz kart yok.</div>';
+}
+function options(selected){return db.decks.map(d=>`<option value="${d.id}" ${d.id===selected?'selected':''}>${esc(d.name)}</option>`).join('')}
+function fillSelects(){['studyDeck','cardDeck','phaseDeck'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const old=el.value;el.innerHTML=options(old||'default');if(!db.decks.some(d=>d.id===el.value))el.selectedIndex=0})}
+function renderAll(){ensureBatches();fillSelects();renderHome();renderCards();renderDecks();renderPhases()}
+function showTab(id){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hidden',x.id!==id));document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));renderAll();if(id==='study')startStudy()}
+initializeStorage();
+</script>
+</body></html>
