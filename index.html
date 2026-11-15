@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#172554">
-<title>KESE v13.3 | Bulut Senkronizasyonu</title>
+<title>KESE v13.4 | Kontrollü Bulut Senkronizasyonu</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--bg:#f4f6fb;--panel:#fff;--ink:#172033;--muted:#68738a;--line:#e4e8f0;--blue:#3157d5;--blue2:#eaf0ff;--green:#16845b;--red:#c34252;--amber:#a56a12;--shadow:0 10px 30px rgba(28,42,80,.07)}
@@ -48,7 +48,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </head>
 <body>
 <div id="storageLoading" style="position:fixed;inset:0;z-index:9999;background:#f4f6fb;display:grid;place-items:center;padding:24px;text-align:center;color:#172033;font:600 16px system-ui">KESE verileri güvenli şekilde yükleniyor…</div>
-<header><div><h1>◈ KESE</h1><small>Çok desteli kese sistemi · v13.3</small></div><div class="row"><small id="syncStatus">Bulut bağlantısı hazırlanıyor…</small><button class="secondary" onclick="showTab('settings')">⚙ Ayarlar</button></div></header>
+<header><div><h1>◈ KESE</h1><small>Çok desteli kese sistemi · v13.4</small></div><div class="row"><small id="syncStatus">Bulut bağlantısı hazırlanıyor…</small><button id="manualSyncBtn" class="secondary" onclick="manualSync()" disabled>↻ Senkronize Et</button><button id="syncExitBtn" class="secondary" onclick="syncAndExit()" disabled>☁ Senkronize Et ve Çık</button><button class="secondary" onclick="showTab('settings')">⚙ Ayarlar</button></div></header>
 <div id="authOverlay" class="auth-overlay hidden">
  <div class="auth-card">
   <h2>KESE hesabın</h2>
@@ -108,9 +108,10 @@ const IDB_NAME='KESE_DB_v1', IDB_STORE='appState';
 // Supabase Project URL ve Publishable Key
 const SUPABASE_URL='https://mtosdxfponqspmlqhfnb.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_k8_Eu7CA_KNnxIyvzXT7DQ_NzCoHSSN';
-let supabaseClient=null, cloudUser=null, cloudReady=false, cloudDirty=false;
-let cloudSaveTimer=null, cloudPollTimer=null, lastCloudUpdatedAt=null, cloudSyncRunning=false, realtimeChannel=null;
+let supabaseClient=null, cloudUser=null, cloudReady=false, cloudDirty=false, cloudAccessToken=null;
+let cloudPollTimer=null, cloudAutoSyncTimer=null, lastCloudUpdatedAt=null, cloudSyncRunning=false, realtimeChannel=null, localRevision=0;
 let idb=null, storageMode='indexeddb', saveQueue=Promise.resolve();
+const CLOUD_AUTO_SYNC_MS=12*60*60*1000;
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 function fresh(){return {decks:[{id:'default',name:'Varsayılan deste'}],cards:[],batches:[],unlockedBaskets:{}}}
 function loadLegacy(){
@@ -129,7 +130,8 @@ function openKeseDB(){return new Promise((resolve,reject)=>{
  request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error||new Error('Veritabanı açılamadı.'));
  });}
 function readKeseState(){return new Promise((resolve,reject)=>{const tx=idb.transaction(IDB_STORE,'readonly'),r=tx.objectStore(IDB_STORE).get('main');r.onsuccess=()=>resolve(r.result?.data||null);r.onerror=()=>reject(r.error);});}
-function writeKeseState(data){return new Promise((resolve,reject)=>{const tx=idb.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).put({id:'main',data});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Kayıt işlemi iptal edildi.'));});}
+function readPendingSync(){return new Promise((resolve,reject)=>{const tx=idb.transaction(IDB_STORE,'readonly'),r=tx.objectStore(IDB_STORE).get('syncMeta');r.onsuccess=()=>resolve(!!r.result?.pending);r.onerror=()=>reject(r.error);});}
+function writeKeseState(data,pending){return new Promise((resolve,reject)=>{const tx=idb.transaction(IDB_STORE,'readwrite'),store=tx.objectStore(IDB_STORE);store.put({id:'main',data});if(typeof pending==='boolean')store.put({id:'syncMeta',pending});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Kayıt işlemi iptal edildi.'));});}
 let db=fresh(),current=null,studyIndex=0,answered=0;
 
 function setSyncStatus(message){const el=document.getElementById('syncStatus');if(el)el.textContent=message;}
@@ -161,21 +163,24 @@ async function signUp(){
 async function activateCloudSession(session){
  if(!session?.user)return;
  if(cloudUser?.id===session.user.id&&cloudReady)return;
- cloudUser=session.user;cloudReady=false;setSyncStatus('Buluttaki veriler yükleniyor…');
+ cloudUser=session.user;cloudAccessToken=session.access_token||null;cloudReady=false;setSyncStatus('Buluttaki veriler kontrol ediliyor…');
  try{
+  const localPending=storageMode==='indexeddb'&&idb?await readPendingSync():false;
   const {data,error}=await supabaseClient.from('kese_states').select('state,updated_at').eq('user_id',cloudUser.id).maybeSingle();
   if(error)throw error;
-  if(data&&data.state&&Array.isArray(data.state.cards)&&Array.isArray(data.state.decks)){
+  if(data&&data.state&&Array.isArray(data.state.cards)&&Array.isArray(data.state.decks)&&!localPending){
    db={...fresh(),...data.state,batches:Array.isArray(data.state.batches)?data.state.batches:[],unlockedBaskets:data.state.unlockedBaskets||{}};
    ensureBatches();
-   if(storageMode==='indexeddb'&&idb)await writeKeseState(db);else localStorage.setItem(KEY,JSON.stringify(db));
+   if(storageMode==='indexeddb'&&idb)await writeKeseState(db,false);else localStorage.setItem(KEY,JSON.stringify(db));
    lastCloudUpdatedAt=data.updated_at||null;renderAll();setSyncStatus('☁ Bulutla eşitlendi');
-  }else{
+  }else if(!data){
    const initial=JSON.parse(JSON.stringify(db));const stamp=new Date().toISOString();
    const {data:upserted,error:upsertError}=await supabaseClient.from('kese_states').upsert({user_id:cloudUser.id,state:initial,updated_at:stamp},{onConflict:'user_id'}).select('updated_at').single();
    if(upsertError)throw upsertError;lastCloudUpdatedAt=upserted?.updated_at||stamp;setSyncStatus('☁ İlk yedek buluta aktarıldı');
+  }else{
+   cloudDirty=true;setSyncStatus('Yerel bekleyen değişiklik var · senkronizasyon bekliyor');
   }
-  cloudReady=true;hideAuth();
+  cloudReady=true;hideAuth();updateSyncButton();
   if(realtimeChannel){supabaseClient.removeChannel(realtimeChannel);realtimeChannel=null;}
   realtimeChannel=supabaseClient.channel('kese-state-'+cloudUser.id)
    .on('postgres_changes',{event:'*',schema:'public',table:'kese_states',filter:'user_id=eq.'+cloudUser.id},async payload=>{
@@ -184,27 +189,72 @@ async function activateCloudSession(session){
     if(lastCloudUpdatedAt&&incoming.updated_at&&new Date(incoming.updated_at)<=new Date(lastCloudUpdatedAt))return;
     db={...fresh(),...incoming.state,batches:Array.isArray(incoming.state.batches)?incoming.state.batches:[],unlockedBaskets:incoming.state.unlockedBaskets||{}};
     ensureBatches();
-    if(storageMode==='indexeddb'&&idb)await writeKeseState(db);else localStorage.setItem(KEY,JSON.stringify(db));
+    if(storageMode==='indexeddb'&&idb)await writeKeseState(db,false);else localStorage.setItem(KEY,JSON.stringify(db));
     lastCloudUpdatedAt=incoming.updated_at||lastCloudUpdatedAt;renderAll();
     setSyncStatus('☁ Diğer cihazdan anında güncellendi');
    }).subscribe();
   if(cloudPollTimer)clearInterval(cloudPollTimer);cloudPollTimer=setInterval(pollCloudChanges,12000);
+  if(cloudAutoSyncTimer)clearInterval(cloudAutoSyncTimer);cloudAutoSyncTimer=setInterval(()=>{if(cloudDirty)pushCloudState();},CLOUD_AUTO_SYNC_MS);
+  if(localPending)cloudDirty=true;updateSyncButton();
  }catch(error){
   console.error('Supabase yükleme hatası:',error);cloudReady=false;setSyncStatus('Bulut bağlantı hatası');
   showAuth('Bulut verileri yüklenemedi: '+error.message+' Bağlantı ve tablo ayarlarını kontrol et.');
  }
 }
-function scheduleCloudSave(snapshot){if(cloudSaveTimer)clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(()=>pushCloudState(snapshot),650);}
-async function pushCloudState(snapshot=JSON.parse(JSON.stringify(db))){
- if(!cloudReady||!cloudUser||cloudSyncRunning)return;cloudSyncRunning=true;setSyncStatus('☁ Buluta kaydediliyor…');
+function updateSyncButton(){
+ const btn=document.getElementById('manualSyncBtn');
+ if(btn){btn.disabled=!cloudReady||!cloudUser||cloudSyncRunning;btn.textContent=cloudSyncRunning?'Senkronize ediliyor…':(cloudDirty?'↻ Senkronize Et · Bekliyor':'↻ Senkronize Et');}
+ const exitBtn=document.getElementById('syncExitBtn');if(exitBtn)exitBtn.disabled=!cloudReady||!cloudUser||cloudSyncRunning;
+}
+async function manualSync(){
+ if(!cloudReady||!cloudUser){setSyncStatus('Önce bulut hesabına giriş yap');return false;}
+ if(!cloudDirty){setSyncStatus('☁ Zaten senkronize · '+new Date().toLocaleTimeString());return true;}
+ return await pushCloudState();
+}
+async function syncAndExit(){
+ const btn=document.getElementById('syncExitBtn');
+ if(!cloudReady||!cloudUser){alert('Önce KESE bulut hesabına giriş yapmalısın.');return;}
+ if(btn){btn.disabled=true;btn.textContent='Senkronize ediliyor…';}
  try{
-  await saveQueue;const stamp=new Date().toISOString();
+  await saveQueue;
+  const ok=await manualSync();
+  if(ok&&!cloudDirty){
+   setSyncStatus('☁ Buluta kaydedildi · artık güvenle kapatabilirsin');
+   alert('Tüm değişiklikler buluta kaydedildi. Artık bu sekmeyi veya uygulamayı güvenle kapatabilirsin.');
+  }else{
+   alert('Senkronizasyon tamamlanamadı. Uygulamayı kapatma; internet bağlantını kontrol edip yeniden dene.');
+  }
+ }finally{if(btn){btn.textContent='☁ Senkronize Et ve Çık';btn.disabled=!cloudReady||!cloudUser;}}
+}
+async function pushCloudState(){
+ if(!cloudReady||!cloudUser)return false;
+ if(cloudSyncRunning)return false;
+ if(!cloudDirty)return true;
+ cloudSyncRunning=true;updateSyncButton();setSyncStatus('☁ Buluta kaydediliyor…');
+ const revisionAtStart=localRevision;
+ try{
+  await saveQueue;
+  const snapshot=JSON.parse(JSON.stringify(db));
+  const stamp=new Date().toISOString();
   const {data,error}=await supabaseClient.from('kese_states').upsert({user_id:cloudUser.id,state:snapshot,updated_at:stamp},{onConflict:'user_id'}).select('updated_at').single();
-  if(error)throw error;lastCloudUpdatedAt=data?.updated_at||stamp;cloudDirty=false;setSyncStatus('☁ Senkronize · '+new Date().toLocaleTimeString());
+  if(error)throw error;
+  lastCloudUpdatedAt=data?.updated_at||stamp;
+  if(localRevision===revisionAtStart){cloudDirty=false;if(storageMode==='indexeddb'&&idb)await writeKeseState(snapshot,false);}
+  setSyncStatus(cloudDirty?'☁ Yeni hareket var · tekrar senkronize edilmeli':'☁ Senkronize oldu · '+new Date().toLocaleTimeString());
+  return !cloudDirty;
  }catch(error){
-  console.error('Bulut kayıt hatası:',error);setSyncStatus('Buluta kaydedilemedi · tekrar denenecek');cloudDirty=true;
-  if(cloudSaveTimer)clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(()=>pushCloudState(snapshot),5000);
- }finally{cloudSyncRunning=false;}
+  console.error('Bulut kayıt hatası:',error);cloudDirty=true;setSyncStatus('Senkronizasyon başarısız · tekrar dene');
+  return false;
+ }finally{cloudSyncRunning=false;updateSyncButton();}
+}
+async function bestEffortCloseSync(){
+ if(!cloudReady||!cloudUser||!cloudDirty||!cloudAccessToken)return;
+ try{
+  const body=JSON.stringify({user_id:cloudUser.id,state:db,updated_at:new Date().toISOString()});
+  // Keepalive is best-effort and browsers limit these request bodies to roughly 64 KB.
+  if(new Blob([body]).size>60000)return;
+  fetch(SUPABASE_URL+'/rest/v1/kese_states?on_conflict=user_id',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY,'Authorization':'Bearer '+cloudAccessToken,'Prefer':'resolution=merge-duplicates,return=minimal'},body}).catch(error=>console.warn('Kapanış senkronizasyonu tamamlanamadı:',error));
+ }catch(error){console.warn('Kapanış senkronizasyonu başlatılamadı:',error);}
 }
 async function pollCloudChanges(){
  if(!cloudReady||!cloudUser||cloudDirty||cloudSyncRunning)return;
@@ -213,7 +263,7 @@ async function pollCloudChanges(){
   if(error)throw error;if(!data?.state||!data.updated_at)return;
   if(!lastCloudUpdatedAt||new Date(data.updated_at)>new Date(lastCloudUpdatedAt)){
    db={...fresh(),...data.state,batches:Array.isArray(data.state.batches)?data.state.batches:[],unlockedBaskets:data.state.unlockedBaskets||{}};ensureBatches();
-   if(storageMode==='indexeddb'&&idb)await writeKeseState(db);else localStorage.setItem(KEY,JSON.stringify(db));
+   if(storageMode==='indexeddb'&&idb)await writeKeseState(db,false);else localStorage.setItem(KEY,JSON.stringify(db));
    lastCloudUpdatedAt=data.updated_at;renderAll();setSyncStatus('☁ Diğer cihazdan güncellendi · '+new Date().toLocaleTimeString());
   }
  }catch(error){console.error('Bulut kontrol hatası:',error);setSyncStatus('Senkronizasyon kontrol edilemedi');}
@@ -224,6 +274,8 @@ async function initializeStorage(){
  try{
   idb=await openKeseDB();
   const saved=await readKeseState();
+  const localPending=await readPendingSync();
+  cloudDirty=localPending;
   if(saved&&Array.isArray(saved.cards)&&Array.isArray(saved.decks)){
    db={...fresh(),...saved,batches:Array.isArray(saved.batches)?saved.batches:[],unlockedBaskets:saved.unlockedBaskets||{}};
   }else{
@@ -244,9 +296,10 @@ async function initializeStorage(){
   if(!window.supabase?.createClient)throw new Error('Supabase istemcisi yüklenemedi. İnternet bağlantısını kontrol et.');
   supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
   supabaseClient.auth.onAuthStateChange((event,session)=>{
+   if(session?.access_token)cloudAccessToken=session.access_token;
    if(event==='SIGNED_IN'&&session)activateCloudSession(session);
    if(event==='SIGNED_OUT'){
-    cloudReady=false;cloudUser=null;lastCloudUpdatedAt=null;if(cloudPollTimer)clearInterval(cloudPollTimer);if(realtimeChannel){supabaseClient.removeChannel(realtimeChannel);realtimeChannel=null;}
+    cloudReady=false;cloudUser=null;cloudAccessToken=null;lastCloudUpdatedAt=null;if(cloudPollTimer)clearInterval(cloudPollTimer);if(cloudAutoSyncTimer)clearInterval(cloudAutoSyncTimer);updateSyncButton();if(realtimeChannel){supabaseClient.removeChannel(realtimeChannel);realtimeChannel=null;}
     setSyncStatus('Oturum kapalı');showAuth('Oturum kapatıldı.');
    }
   });
@@ -288,9 +341,11 @@ function ensureBatches(){
 }
 function save(){
  ensureBatches();
+ localRevision++;
+ cloudDirty=true;
  const snapshot=JSON.parse(JSON.stringify(db));
  if(storageMode==='indexeddb'&&idb){
-  saveQueue=saveQueue.then(()=>writeKeseState(snapshot)).catch(error=>{
+  saveQueue=saveQueue.then(()=>writeKeseState(snapshot,true)).catch(error=>{
    console.error('KESE kayıt hatası:',error);
    alert('Veriler bu cihaza kaydedilemedi. Lütfen JSON yedeği al.');
   });
@@ -298,7 +353,8 @@ function save(){
   try{localStorage.setItem(KEY,JSON.stringify(snapshot));}
   catch(error){alert('Yerel kayıt yapılamadı: '+error.message);}
  }
- if(cloudReady&&cloudUser){cloudDirty=true;scheduleCloudSave(snapshot);}
+ if(cloudReady&&cloudUser)setSyncStatus('Yerel kaydedildi · bulut senkronizasyonu bekliyor');
+ updateSyncButton();
  renderAll();
 }
 function addDeck(){
@@ -466,6 +522,14 @@ function options(selected){return db.decks.map(d=>`<option value="${d.id}" ${d.i
 function fillSelects(){['studyDeck','cardDeck','phaseDeck'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const old=el.value;el.innerHTML=options(old||'default');if(!db.decks.some(d=>d.id===el.value))el.selectedIndex=0})}
 function renderAll(){ensureBatches();fillSelects();renderHome();renderCards();renderDecks();renderPhases()}
 function showTab(id){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hidden',x.id!==id));document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));renderAll();if(id==='study')startStudy()}
+// Tarayıcı sekmesi/penceresi kapatılırken yerel değişiklikler için yerleşik uyarıyı göster.
+// Tarayıcılar bu uyarının metnini ve düğmelerini kendileri belirler; özel bir buton eklenemez.
+window.addEventListener('beforeunload',event=>{
+ if(cloudDirty){event.preventDefault();event.returnValue='Buluta aktarılmamış değişikliklerin var.';return event.returnValue;}
+});
+// Sekme arka plana alındığında son bir senkronizasyon denemesi yapılır.
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&cloudDirty&&cloudReady)pushCloudState();});
+window.addEventListener('pagehide',bestEffortCloseSync);
 initializeStorage();
 </script>
 </body></html>
