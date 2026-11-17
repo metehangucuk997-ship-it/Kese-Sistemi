@@ -425,7 +425,28 @@ function activeBasket(deck){
  return 1;
 }
 function getStudyCards(){const deck=document.getElementById('studyDeck')?.value||db.decks[0]?.id,n=activeBasket(deck);return {deck,n,cards:cardsInBasket(deck,n)};}
-function startStudy(){studyIndex=0;answered=0;nextCard()}
+function startStudy(){
+ const {deck,n,cards}=getStudyCards();
+ db.studyPositions=db.studyPositions||{};
+ const position=db.studyPositions[deck];
+ studyIndex=0;
+ if(position&&Number(position.basket)===n){
+  let savedIndex=position.cardId?cards.findIndex(c=>c.id===position.cardId):-1;
+  if(savedIndex<0)savedIndex=Number.isFinite(Number(position.index))?Number(position.index):0;
+  studyIndex=Math.min(Math.max(0,savedIndex),Math.max(0,cards.length-1));
+ }
+ answered=0;
+ nextCard();
+}
+function persistStudyPosition(deck,n,cards){
+ if(!deck||!cards.length||!cards[studyIndex])return;
+ db.studyPositions=db.studyPositions||{};
+ const cardId=cards[studyIndex].id;
+ const old=db.studyPositions[deck];
+ if(old&&old.basket===n&&old.cardId===cardId)return;
+ db.studyPositions[deck]={basket:n,cardId,index:studyIndex};
+ save();
+}
 function drawPageIndex(cards){
  const box=document.getElementById('pageIndex');if(!box)return;
  box.innerHTML='<div class="page-grid">'+cards.map((c,i)=>`<button class="page-number ${i===studyIndex?'active':''}" onclick="goToCard(${i})">${i+1}</button>`).join('')+'</div>';
