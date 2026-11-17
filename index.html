@@ -113,13 +113,14 @@ let cloudPollTimer=null, cloudAutoSyncTimer=null, lastCloudUpdatedAt=null, cloud
 let idb=null, storageMode='indexeddb', saveQueue=Promise.resolve();
 const CLOUD_AUTO_SYNC_MS=12*60*60*1000;
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
-function fresh(){return {decks:[{id:'default',name:'Varsayılan deste'}],cards:[],batches:[],unlockedBaskets:{}}}
+function fresh(){return {decks:[{id:'default',name:'Varsayılan deste'}],cards:[],batches:[],unlockedBaskets:{},studyPositions:{}}}
 function loadLegacy(){
  try{
   const x=JSON.parse(localStorage.getItem(KEY));
   if(!x||!Array.isArray(x.cards)||!Array.isArray(x.decks))return null;
   x.batches=Array.isArray(x.batches)?x.batches:[];
   x.unlockedBaskets=x.unlockedBaskets||{};
+  x.studyPositions=x.studyPositions||{};
   return x;
  }catch{return null}
 }
@@ -169,7 +170,7 @@ async function activateCloudSession(session){
   const {data,error}=await supabaseClient.from('kese_states').select('state,updated_at').eq('user_id',cloudUser.id).maybeSingle();
   if(error)throw error;
   if(data&&data.state&&Array.isArray(data.state.cards)&&Array.isArray(data.state.decks)&&!localPending){
-   db={...fresh(),...data.state,batches:Array.isArray(data.state.batches)?data.state.batches:[],unlockedBaskets:data.state.unlockedBaskets||{}};
+   db={...fresh(),...data.state,batches:Array.isArray(data.state.batches)?data.state.batches:[],unlockedBaskets:data.state.unlockedBaskets||{},studyPositions:data.state.studyPositions||{}};
    ensureBatches();
    if(storageMode==='indexeddb'&&idb)await writeKeseState(db,false);else localStorage.setItem(KEY,JSON.stringify(db));
    lastCloudUpdatedAt=data.updated_at||null;renderAll();setSyncStatus('☁ Bulutla eşitlendi');
@@ -187,7 +188,7 @@ async function activateCloudSession(session){
     const incoming=payload.new;
     if(!incoming?.state||cloudDirty||cloudSyncRunning)return;
     if(lastCloudUpdatedAt&&incoming.updated_at&&new Date(incoming.updated_at)<=new Date(lastCloudUpdatedAt))return;
-    db={...fresh(),...incoming.state,batches:Array.isArray(incoming.state.batches)?incoming.state.batches:[],unlockedBaskets:incoming.state.unlockedBaskets||{}};
+    db={...fresh(),...incoming.state,batches:Array.isArray(incoming.state.batches)?incoming.state.batches:[],unlockedBaskets:incoming.state.unlockedBaskets||{},studyPositions:incoming.state.studyPositions||{}};
     ensureBatches();
     if(storageMode==='indexeddb'&&idb)await writeKeseState(db,false);else localStorage.setItem(KEY,JSON.stringify(db));
     lastCloudUpdatedAt=incoming.updated_at||lastCloudUpdatedAt;renderAll();
@@ -262,7 +263,7 @@ async function pollCloudChanges(){
   const {data,error}=await supabaseClient.from('kese_states').select('state,updated_at').eq('user_id',cloudUser.id).maybeSingle();
   if(error)throw error;if(!data?.state||!data.updated_at)return;
   if(!lastCloudUpdatedAt||new Date(data.updated_at)>new Date(lastCloudUpdatedAt)){
-   db={...fresh(),...data.state,batches:Array.isArray(data.state.batches)?data.state.batches:[],unlockedBaskets:data.state.unlockedBaskets||{}};ensureBatches();
+   db={...fresh(),...data.state,batches:Array.isArray(data.state.batches)?data.state.batches:[],unlockedBaskets:data.state.unlockedBaskets||{},studyPositions:data.state.studyPositions||{}};ensureBatches();
    if(storageMode==='indexeddb'&&idb)await writeKeseState(db,false);else localStorage.setItem(KEY,JSON.stringify(db));
    lastCloudUpdatedAt=data.updated_at;renderAll();setSyncStatus('☁ Diğer cihazdan güncellendi · '+new Date().toLocaleTimeString());
   }
@@ -445,7 +446,7 @@ function nextCard(){
   document.getElementById('studyCount').textContent='Beklemede';document.getElementById('studyMeta').textContent=`${n}. Kese · ${basketCount(deck,n)}/${basketCapacity(n)}`;return;
  }
  if(studyIndex>=cards.length)studyIndex=0;
- current=cards[studyIndex];document.getElementById('activeRecallBtn').classList.remove('hidden');const revealBtn=document.getElementById('revealBtn');if(revealBtn){revealBtn.textContent='Cevabı göster';revealBtn.disabled=false;}
+ current=cards[studyIndex];persistStudyPosition(deck,n,cards);document.getElementById('activeRecallBtn').classList.remove('hidden');const revealBtn=document.getElementById('revealBtn');if(revealBtn){revealBtn.textContent='Cevabı göster';revealBtn.disabled=false;}
  prev.disabled=studyIndex===0;cont.disabled=studyIndex===cards.length-1;
  box.innerHTML=`<div class="label">${esc(deckName(deck))} · ${n}. Kese</div><div class="face">${esc(current.front)}</div><div class="small">Sıra: ${studyIndex+1}/${cards.length} · Toplam Active Recall: ${current.count} · Bu kesedeki tekrar: ${basketStage(current)}/10</div><div id="answer" class="answer hidden">${esc(current.back)}</div>`;
  document.getElementById('studyCount').textContent=`${studyIndex+1}. / ${cards.length}. cümle`;
@@ -468,7 +469,7 @@ function exportData(){
 }
 function importData(ev){
  const file=ev.target.files[0];if(!file)return;const r=new FileReader();
- r.onload=()=>{try{const x=JSON.parse(r.result);if(!Array.isArray(x.cards)||!Array.isArray(x.decks))throw Error();if(!confirm('İçe aktarma mevcut verilerin üzerine yazacak. Devam edilsin mi?'))return;db={...fresh(),...x,batches:Array.isArray(x.batches)?x.batches:[],unlockedBaskets:x.unlockedBaskets||{}};ensureBatches();save();alert('Yedek geri yüklendi.')}catch{alert('Geçersiz veya uyumsuz yedek dosyası.')}};r.readAsText(file);ev.target.value='';
+ r.onload=()=>{try{const x=JSON.parse(r.result);if(!Array.isArray(x.cards)||!Array.isArray(x.decks))throw Error();if(!confirm('İçe aktarma mevcut verilerin üzerine yazacak. Devam edilsin mi?'))return;db={...fresh(),...x,batches:Array.isArray(x.batches)?x.batches:[],unlockedBaskets:x.unlockedBaskets||{},studyPositions:x.studyPositions||{}};ensureBatches();save();alert('Yedek geri yüklendi.')}catch{alert('Geçersiz veya uyumsuz yedek dosyası.')}};r.readAsText(file);ev.target.value='';
 }
 function resetAll(){if(confirm('Tüm kartlar ve desteler kalıcı olarak silinsin mi?')){db=fresh();save()}}
 function renderHome(){
