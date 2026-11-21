@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#172554">
-<title>KESE v13.7 | Toplu Kart Silme</title>
+<title>KESE v14.1 | Tek Liste Active Recall</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--bg:#f4f6fb;--panel:#fff;--ink:#172033;--muted:#68738a;--line:#e4e8f0;--blue:#3157d5;--blue2:#eaf0ff;--green:#16845b;--red:#c34252;--amber:#a56a12;--shadow:0 10px 30px rgba(28,42,80,.07)}
@@ -54,7 +54,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </head>
 <body>
 <div id="storageLoading" style="position:fixed;inset:0;z-index:9999;background:#f4f6fb;display:grid;place-items:center;padding:24px;text-align:center;color:#172033;font:600 16px system-ui">KESE verileri güvenli şekilde yükleniyor…</div>
-<header><div><h1>◈ KESE</h1><small>Çok desteli kese sistemi · v13.7</small></div><div class="row"><small id="syncStatus">Bulut bağlantısı hazırlanıyor…</small><button id="manualSyncBtn" class="secondary" onclick="manualSync()" disabled>↻ Senkronize Et</button><button id="syncExitBtn" class="secondary" onclick="syncAndExit()" disabled>☁ Senkronize Et ve Çık</button><button class="secondary" onclick="showTab('settings')">⚙ Ayarlar</button></div></header>
+<header><div><h1>◈ KESE</h1><small>Tek liste · Maviye Boya Active Recall · v14.2</small></div><div class="row"><small id="syncStatus">Bulut bağlantısı hazırlanıyor…</small><button id="manualSyncBtn" class="secondary" onclick="manualSync()" disabled>↻ Senkronize Et</button><button id="syncExitBtn" class="secondary" onclick="syncAndExit()" disabled>☁ Senkronize Et ve Çık</button><button class="secondary" onclick="showTab('settings')">⚙ Ayarlar</button></div></header>
 <div id="authOverlay" class="auth-overlay hidden">
  <div class="auth-card">
   <h2>KESE hesabın</h2>
@@ -71,13 +71,13 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <button data-tab="study" onclick="showTab('study')">Çalış</button>
 <button data-tab="cards" onclick="showTab('cards')">Kartlar</button>
 <button data-tab="decks" onclick="showTab('decks')">Desteler</button>
-<button data-tab="phases" onclick="showTab('phases')">Keseler</button>
+
 <button data-tab="settings" onclick="showTab('settings')">Yedekleme</button>
 </nav>
 <section id="home" class="view">
 <div class="grid" id="stats"></div>
 <div class="panel sectiongap"><div class="row between"><h2>Bugünkü çalışma</h2><button onclick="showTab('study')">Çalışmaya başla</button></div><div id="homeProgress"></div></div>
-<div class="panel sectiongap"><h2>Sonraki adım</h2><p class="muted">Bir deste oluştur, kartlarını ekle ve kendi tekrar hedefini belirle. Kese, her cevapta kartın tekrar sayısını bir artırır.</p></div>
+<div class="panel sectiongap"><h2>Sonraki adım</h2><p class="muted">Bir deste oluştur, cümlelerini ekle ve “Tekrara geç” düğmesiyle Active Recall turunu başlat.</p></div>
 </section>
 <section id="study" class="view hidden">
 <div class="study">
@@ -85,27 +85,34 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <div class="cardbox studycard sectiongap" id="studyCard"><div class="empty">Çalışmaya başlamak için bir deste seç.</div></div>
 <div class="sectiongap"><button class="secondary" id="revealBtn" style="width:100%;padding:14px" onclick="reveal()">Cevabı göster</button></div>
 <div class="row between sectiongap"><button class="secondary" id="previousBtn" onclick="previousCard()">← Önceki</button><span class="small" id="studyCount"></span><button class="secondary" id="continueBtn" onclick="continueCard()">Devam et →</button></div>
-<div class="sectiongap"><button id="activeRecallBtn" style="width:100%;padding:17px;font-size:18px" onclick="activeRecall()">✓ Active Recall · +1</button></div>
+<div class="rating sectiongap" id="recallChoices">
+<button class="ghost" onclick="markRecall(false)">Beyaz kalsın</button>
+<button onclick="markRecall(true)">Maviye boya</button>
+</div>
+<div id="recallProgress" class="note sectiongap">Tekrar oturumu bekleniyor.</div>
 <div class="sectiongap"><button class="secondary" id="pageToggle" onclick="togglePageIndex()">☷ Cümle numarasını seç</button><div id="pageIndex" class="hidden sectiongap"></div></div>
-<p class="small">Active Recall her basışta bu cümlenin tekrarını +1 artırır. 10 tekrara ulaşınca sonraki keseye geçer. Devam et ve Önceki ile cümleler arasında gezebilirsin.</p>
+<p class="small">Her kartta “Beyaz kalsın” veya “Maviye boya” seç. Her iki seçim de 1 Active Recall sayılır.</p>
 </div>
 </section>
 <section id="cards" class="view hidden">
 <div class="panel"><h2>Kart oluştur</h2><div class="field"><label>Deste</label><select id="cardDeck"></select></div><div class="field"><label>Ön yüz / Soru</label><textarea id="front" placeholder="Örneğin: Router nedir?"></textarea></div><div class="field"><label>Arka yüz / Cevap</label><textarea id="back" placeholder="Cevabı yaz..."></textarea></div><div class="row"><button onclick="addCard()">Kart ekle</button><button class="secondary" onclick="bulkToggle()">Toplu kart ekle</button></div>
 <div class="import-area sectiongap"><h3>Anki kartlarını aktar</h3><p class="small">Anki’den dışa aktardığın .txt dosyasını seç. Dosyadaki tüm kartlar yukarıda seçili olan desteye mevcut kartların üzerine eklenecek. Eski kartlar silinmez.</p><label class="import-button">📥 TXT dosyası seç <input type="file" accept=".txt,text/plain" onchange="importTxt(event)"></label><p class="small">TAB ile ayrılmış dosyalarda ilk sütun soru, ikinci sütun cevap olarak alınır.</p></div>
 <div id="bulkBox" class="hidden sectiongap"><p class="small">Her satıra bir kart yaz. Soru ve cevap arasına TAB koy.</p><textarea id="bulkText" placeholder="Router nedir?&#9;Ağları birbirine bağlar."></textarea><button onclick="bulkAdd()">Toplu eklemeyi tamamla</button></div></div>
+<div class="panel sectiongap" id="newSentenceBatchPanel">
+<h2>Yeni cümle grubu</h2>
+<p class="small">Yeni kartlarını ekle. Hazır olduğunda “Tekrara geç” diyerek grubu kesinleştir. Her yeni kart 4 Active Recall gerektirir.</p>
+<div id="pendingBatchStatus" class="note">Henüz bekleyen yeni cümle yok.</div>
+<div class="row sectiongap"><button id="startBatchBtn" onclick="commitNewBatch()">Tekrara geç</button></div>
+</div>
 <div class="panel sectiongap"><h2>Desteler ve kartları</h2><p class="small">Kartlar başlangıçta tek tek yüklenmez. İlgili destenin kartlarını görmek için düğmeye bas.</p><div id="cardDeckOverview" class="list"></div><div id="selectedDeckCards" class="sectiongap"></div></div>
 </section>
 <section id="decks" class="view hidden">
 <div class="panel"><h2>Deste oluştur</h2><div class="row"><input id="deckName" placeholder="Örneğin: İngilizce A1"><button onclick="addDeck()">Deste ekle</button></div></div>
 <div class="panel sectiongap"><h2>Destelerim</h2><div id="deckList" class="list"></div></div>
 </section>
-<section id="phases" class="view hidden">
-<div class="panel"><h2>Keseler</h2><p class="muted">Her destenin keseleri bağımsız ilerler. Bir sonraki kese, kapasitesi dolmadan çalışmaya başlamaz.</p><div class="field"><label>Deste</label><select id="phaseDeck" onchange="renderPhases()"></select></div><div id="phaseList" class="list"></div></div>
-<div class="panel sectiongap"><h2>Kese sistemi</h2><p class="small">Her cümle, bulunduğu kesede 10 Active Recall tamamlayınca bir sonraki keseye geçer. Kese kapasiteleri 100, 200, 400, 800... şeklinde iki katına çıkar ve ihtiyaç oldukça devam eder. Bir kese kapasitesine ilk kez ulaşınca çalışmaya açılır ve açık kalır.</p></div></section>
 <section id="settings" class="view hidden">
-
-<div class="panel sectiongap"><h2>Yedekleme</h2><p class="muted">Kartların, destelerin, sayaçların ve aşamaların JSON yedeğini alabilir veya geri yükleyebilirsin.</p><div class="row"><button onclick="exportData()">JSON yedeği indir</button><label class="secondary" style="padding:11px 14px;border-radius:12px;font-weight:650;cursor:pointer">Yedek içe aktar <input type="file" accept=".json,application/json" style="display:none" onchange="importData(event)"></label></div><div class="note sectiongap">Veriler önce bu cihazda IndexedDB içine kaydedilir, ardından Supabase hesabına eşitlenir. Mac ve Android'de aynı hesapla giriş yap. Önemli veriler için JSON yedeği almaya devam et.</div><div class="sectiongap"><button class="secondary" onclick="signOut()">Hesaptan çıkış yap</button></div><div class="sectiongap"><button class="danger" onclick="resetAll()">Bütün verileri sil</button></div></div>
+<div class="panel"><h2>Active Recall katsayısı</h2><p class="muted">Her yeni cümle için kaç Active Recall gerektiğini belirle. Değişiklik yalnızca bundan sonra başlatacağın yeni gruplara uygulanır. Devam eden grubun hedefi değişmez.</p><div class="row"><label for="recallMultiplier">Yeni gruplar için katsayı</label><select id="recallMultiplier" onchange="setRecallMultiplier(this.value)"><option value="1">1×</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option><option value="5">5×</option><option value="6">6×</option><option value="7">7×</option><option value="8">8×</option><option value="9">9×</option><option value="10">10×</option><option value="12">12×</option><option value="15">15×</option><option value="20">20×</option></select></div><div id="recallMultiplierStatus" class="note sectiongap">Varsayılan katsayı: 4×</div></div>
+<div class="panel sectiongap"><h2>Yedekleme</h2><p class="muted">Kartların, destelerin ve öğrenme ilerlemenin JSON yedeğini alabilir veya geri yükleyebilirsin.</p><div class="row"><button onclick="exportData()">JSON yedeği indir</button><label class="secondary" style="padding:11px 14px;border-radius:12px;font-weight:650;cursor:pointer">Yedek içe aktar <input type="file" accept=".json,application/json" style="display:none" onchange="importData(event)"></label></div><div class="note sectiongap">Veriler önce bu cihazda IndexedDB içine kaydedilir, ardından Supabase hesabına eşitlenir. Mac ve Android'de aynı hesapla giriş yap. Önemli veriler için JSON yedeği almaya devam et.</div><div class="sectiongap"><button class="secondary" onclick="signOut()">Hesaptan çıkış yap</button></div><div class="sectiongap"><button class="danger" onclick="resetAll()">Bütün verileri sil</button></div></div>
 </section>
 </main>
 <script>
@@ -119,7 +126,7 @@ let cloudPollTimer=null, cloudAutoSyncTimer=null, lastCloudUpdatedAt=null, cloud
 let idb=null, storageMode='indexeddb', saveQueue=Promise.resolve();
 const CLOUD_AUTO_SYNC_MS=12*60*60*1000;
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
-function fresh(){return {decks:[{id:'default',name:'Varsayılan deste'}],cards:[],batches:[],unlockedBaskets:{},studyPositions:{}}}
+function fresh(){return {decks:[{id:'default',name:'Varsayılan deste'}],cards:[],batches:[],unlockedBaskets:{},studyPositions:{},learning:{pending:{},sessions:{},cursor:{},recallMultiplier:4}}}
 function loadLegacy(){
  try{
   const x=JSON.parse(localStorage.getItem(KEY));
@@ -140,6 +147,7 @@ function readKeseState(){return new Promise((resolve,reject)=>{const tx=idb.tran
 function readPendingSync(){return new Promise((resolve,reject)=>{const tx=idb.transaction(IDB_STORE,'readonly'),r=tx.objectStore(IDB_STORE).get('syncMeta');r.onsuccess=()=>resolve(!!r.result?.pending);r.onerror=()=>reject(r.error);});}
 function writeKeseState(data,pending){return new Promise((resolve,reject)=>{const tx=idb.transaction(IDB_STORE,'readwrite'),store=tx.objectStore(IDB_STORE);store.put({id:'main',data});if(typeof pending==='boolean')store.put({id:'syncMeta',pending});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Kayıt işlemi iptal edildi.'));});}
 let db=fresh(),current=null,studyIndex=0,answered=0;
+let recallDeck=null;
 let selectedCardIds=new Set();
 
 function setSyncStatus(message){const el=document.getElementById('syncStatus');if(el)el.textContent=message;}
@@ -318,34 +326,63 @@ async function initializeStorage(){
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function deckName(id){return db.decks.find(d=>d.id===id)?.name||'Silinmiş deste'}
-function basketCapacity(n){return 100*Math.pow(2,n-1)}
-function basketCount(deck,n){return db.cards.filter(c=>c.deck===deck&&Number(c.basket)===n).length}
-function basketIsOpen(deck,n){return n===1||!!db.unlockedBaskets[deck+'_'+n]||basketCount(deck,n)>=basketCapacity(n)}
-function basketStage(c){return Number(c.basketRepeats)||0}
 function ensureBatches(){
+ // Eski sürümden gelen kart sayaçlarını koru; kese/10-tekrar ilerlemesi artık kullanılmaz.
  db.cards.forEach((c,i)=>{
   c.count=Math.max(0,Math.floor(Number(c.count)||0));
-  if(!Number.isFinite(Number(c.basket))||Number(c.basket)<1){
-   c.basket=Math.floor(c.count/10)+1;
-   c.basketRepeats=c.count%10;
-  }else if(c.basketRepeats===undefined){
-   const old=db.batches.find(b=>b.id===c.batchId);
-   const local=old?Number(c.stageCounts?.[old.id]):NaN;
-   c.basketRepeats=Number.isFinite(local)?Math.max(0,Math.min(9,local)):c.count%10;
-  }
-  c.basket=Math.max(1,Math.floor(Number(c.basket)||1));
-  c.basketRepeats=Math.max(0,Math.min(9,Math.floor(Number(c.basketRepeats)||0)));
   if(!Number.isFinite(Number(c.order)))c.order=Number(c.created)||i;
  });
- db.decks.forEach(d=>{
-  const first= db.cards.filter(c=>c.deck===d.id&&Number(c.basket)===1).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
-  first.slice(100).forEach(c=>{c.basket=0;c.basketRepeats=0;});
-  if(first.length<100){
-   const waiting=db.cards.filter(c=>c.deck===d.id&&Number(c.basket)===0).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
-   waiting.slice(0,100-first.length).forEach(c=>{c.basket=1;c.basketRepeats=0;});
-  }
-  for(let n=2;n<=12;n++)if(basketCount(d.id,n)>=basketCapacity(n))db.unlockedBaskets[d.id+'_'+n]=true;
- });
+}
+function ensureLearning(){
+ db.learning=db.learning||{pending:{},sessions:{},cursor:{}};
+ db.learning.pending=db.learning.pending||{};db.learning.sessions=db.learning.sessions||{};db.learning.cursor=db.learning.cursor||{};if(!Number.isFinite(Number(db.learning.recallMultiplier))||Number(db.learning.recallMultiplier)<1)db.learning.recallMultiplier=4;
+ db.cards.forEach(c=>{if(typeof c.learned!=='boolean')c.learned=false;});
+}
+function learningState(deck){
+ ensureLearning();
+ return db.learning.sessions[deck]||null;
+}
+function pendingCards(deck){ensureLearning();return db.learning.pending[deck]||[];}
+function setRecallMultiplier(value){const n=Math.max(1,Math.min(20,Math.floor(Number(value)||4)));ensureLearning();db.learning.recallMultiplier=n;save();}
+function renderRecallMultiplier(){ensureLearning();const el=document.getElementById('recallMultiplier');if(el)el.value=String(db.learning.recallMultiplier);const status=document.getElementById('recallMultiplierStatus');if(status)status.textContent='Yeni gruplarda her cümle '+db.learning.recallMultiplier+' Active Recall gerektirecek. Devam eden gruplar etkilenmez.';}
+function addPendingCards(deck,cards){
+ ensureLearning();
+ const session=db.learning.sessions[deck];
+ if(session&&session.done<session.required) return alert('Tekrar etmen gereken en az '+(session.required-session.done)+' cümlen daha var.');
+ db.learning.pending[deck]=[...pendingCards(deck),...cards];
+ save();
+}
+function commitNewBatch(){
+ const deck=document.getElementById('cardDeck').value;
+ const pending=pendingCards(deck);
+ if(!pending.length)return alert('Önce yeni cümle eklemelisin.');
+ const session=learningState(deck);
+ if(session&&session.done<session.required)return alert('Tekrar etmen gereken en az '+(session.required-session.done)+' cümlen daha var.');
+ const added=pending.map((c,i)=>({...c,learned:false,cycle:0,order:Date.now()+i}));
+ db.cards.push(...added);
+ db.learning.pending[deck]=[];
+ const multiplier=Number(db.learning.recallMultiplier)||4;
+ const required=added.length*multiplier;
+ db.learning.sessions[deck]={batchSize:added.length,multiplier,required,done:0,startedAt:Date.now(),completed:false};
+ db.learning.cursor[deck]=0;
+ save();alert(added.length+' yeni cümle gruba alındı. '+required+' Active Recall yapmalısın.');
+ if(document.getElementById('study').classList.contains('hidden'))showTab('study');
+ else startStudy();
+}
+function renderLearningStatus(){
+ ensureLearning();
+ const deck=document.getElementById('cardDeck')?.value||db.decks[0]?.id;
+ const pending=pendingCards(deck),session=learningState(deck);
+ const remaining=session?Math.max(0,session.required-session.done):0;
+ const box=document.getElementById('pendingBatchStatus'),btn=document.getElementById('startBatchBtn');
+ if(box)box.textContent=pending.length+' yeni cümle bekliyor · '+(pending.length*(Number(db.learning.recallMultiplier)||4))+' Active Recall gerekecek'+(remaining?' · Önce '+remaining+' tekrar tamamlanmalı':'');
+ if(btn){btn.disabled=!pending.length||remaining>0;btn.textContent='Tekrara geç';}
+ const locked=remaining>0;
+ ['front','back'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=locked;});
+ const addButtons=document.querySelectorAll('#cards button[onclick="addCard()"],#cards button[onclick="bulkToggle()"],#cards .import-button input');
+ addButtons.forEach(el=>{el.disabled=locked;el.style.opacity=locked?'.45':'';});
+ const progress=document.getElementById('recallProgress');
+ if(progress)progress.textContent=session?('Active Recall: '+session.done+'/'+session.required+' · Kalan: '+remaining):'Yeni cümle ekleyerek ilk tekrar grubunu başlat.';
 }
 function save(){
  ensureBatches();
@@ -372,8 +409,9 @@ function addDeck(){
 function addCard(){
  const deck=document.getElementById('cardDeck').value,front=document.getElementById('front').value.trim(),back=document.getElementById('back').value.trim();
  if(!front||!back)return alert('Soru ve cevabı doldur.');
- db.cards.push({id:uid(),deck,front,back,count:0,basket:1,basketRepeats:0,order:Date.now(),created:Date.now()});
- document.getElementById('front').value='';document.getElementById('back').value='';save();
+ const session=learningState(deck);if(session&&session.done<session.required)return alert('Tekrar etmen gereken en az '+(session.required-session.done)+' cümlen daha var.');
+ addPendingCards(deck,[{id:uid(),deck,front,back,count:0,basket:1,basketRepeats:0,order:Date.now(),created:Date.now()}]);
+ document.getElementById('front').value='';document.getElementById('back').value='';
 }
 function bulkToggle(){document.getElementById('bulkBox').classList.toggle('hidden')}
 function plainImportedField(value){
@@ -393,12 +431,12 @@ function importTxt(ev){
    if(!f||!b)throw Error('Ön/arka yüz sütunları boş görünüyor.');
    const proceed=confirm('ÖNİZLEME\n\nÖn yüz: '+f+'\nArka yüz: '+b+'\n\n'+lines.length+' kart seçili desteye EKLENECEK.\nMevcut kartlar silinmeyecek.');
    if(!proceed){ev.target.value='';return;}
-   let added=0;
+   let added=0;const pendingToAdd=[];
    lines.forEach(line=>{
     const fields=line.split('\t'),front=plainImportedField(fields[fi]??''),back=plainImportedField(fields[bi]??'');
-    if(front&&back){db.cards.push({id:uid(),deck,front,back,count:0,basket:1,basketRepeats:0,order:Date.now()+added,created:Date.now()+added});added++;}
+    if(front&&back){pendingToAdd.push({id:uid(),deck,front,back,count:0,basket:1,basketRepeats:0,order:Date.now()+added,created:Date.now()+added});added++;}
    });
-   save();alert(added+' kart seçili desteye eklendi. Destede toplam '+db.cards.filter(c=>c.deck===deck).length+' kart var. Ön yüz '+(fi+1)+'. sütun, arka yüz '+(bi+1)+'. sütun.');
+   addPendingCards(deck,pendingToAdd);alert(added+' kart yeni cümle grubuna eklendi. “Tekrara geç” ile grubu başlatabilirsin. Ön yüz '+(fi+1)+'. sütun, arka yüz '+(bi+1)+'. sütun.');
   }catch(err){alert('TXT dosyası okunamadı: '+err.message)}
   ev.target.value='';
  };
@@ -406,9 +444,9 @@ function importTxt(ev){
  reader.readAsText(file,'UTF-8');
 }
 function bulkAdd(){
- const deck=document.getElementById('cardDeck').value,lines=document.getElementById('bulkText').value.split(/\r?\n/);let n=0;
- lines.forEach(line=>{const p=line.split('\t');if(p.length>=2&&p[0].trim()&&p.slice(1).join('\t').trim()){db.cards.push({id:uid(),deck,front:p[0].trim(),back:p.slice(1).join('\t').trim(),count:0,basket:1,basketRepeats:0,order:Date.now()+n,created:Date.now()+n});n++;}});
- document.getElementById('bulkText').value='';save();alert(n+' kart eklendi.');
+ const deck=document.getElementById('cardDeck').value,lines=document.getElementById('bulkText').value.split(/\r?\n/);let n=0;const staged=[];
+ lines.forEach(line=>{const p=line.split('\t');if(p.length>=2&&p[0].trim()&&p.slice(1).join('\t').trim()){staged.push({id:uid(),deck,front:p[0].trim(),back:p.slice(1).join('\t').trim(),count:0,basket:1,basketRepeats:0,order:Date.now()+n,created:Date.now()+n});n++;}});
+ document.getElementById('bulkText').value='';addPendingCards(deck,staged);alert(n+' kart yeni cümle grubuna eklendi.');
 }
 function deleteCard(id){
  const card=db.cards.find(c=>c.id===id);if(!card)return;
@@ -424,41 +462,20 @@ function editCardCount(id){
  c.count=Number(v);c.basket=Math.floor(c.count/10)+1;c.basketRepeats=c.count%10;save();
  if(!document.getElementById('study').classList.contains('hidden'))startStudy();
 }
-function progressBaskets(){
- db.decks.forEach(d=>{
-  const max=Math.max(1,...db.cards.filter(c=>c.deck===d.id).map(c=>Math.max(1,Number(c.basket)||1)));
-  for(let n=2;n<=max;n++)if(basketCount(d.id,n)>=basketCapacity(n))db.unlockedBaskets[d.id+'_'+n]=true;
- });
+function getStudyCards(){
+ const deck=document.getElementById('studyDeck')?.value||db.decks[0]?.id;
+ const cards=db.cards.filter(c=>c.deck===deck).sort((x,y)=>(Number(x.order)||0)-(Number(y.order)||0));
+ return {deck,n:1,cards};
 }
-function cardsInBasket(deck,n){return db.cards.filter(c=>c.deck===deck&&Number(c.basket)===n).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));}
-function activeBasket(deck){
- const ns=db.cards.filter(c=>c.deck===deck).map(c=>Math.max(1,Number(c.basket)||1));
- const max=Math.max(1,...ns);
- for(let n=1;n<=max;n++){if(basketCount(deck,n)>0)return n;}
- return 1;
-}
-function getStudyCards(){const deck=document.getElementById('studyDeck')?.value||db.decks[0]?.id,n=activeBasket(deck);return {deck,n,cards:cardsInBasket(deck,n)};}
 function startStudy(){
- const {deck,n,cards}=getStudyCards();
- db.studyPositions=db.studyPositions||{};
- const position=db.studyPositions[deck];
- studyIndex=0;
- if(position&&Number(position.basket)===n){
-  let savedIndex=position.cardId?cards.findIndex(c=>c.id===position.cardId):-1;
-  if(savedIndex<0)savedIndex=Number.isFinite(Number(position.index))?Number(position.index):0;
-  studyIndex=Math.min(Math.max(0,savedIndex),Math.max(0,cards.length-1));
- }
- answered=0;
+ const {deck,cards}=getStudyCards();recallDeck=deck;studyIndex=0;
+ const session=learningState(deck);
+ if(session&&session.done>=session.required){session.completed=true;}
  nextCard();
 }
 function persistStudyPosition(deck,n,cards){
  if(!deck||!cards.length||!cards[studyIndex])return;
- db.studyPositions=db.studyPositions||{};
- const cardId=cards[studyIndex].id;
- const old=db.studyPositions[deck];
- if(old&&old.basket===n&&old.cardId===cardId)return;
- db.studyPositions[deck]={basket:n,cardId,index:studyIndex};
- save();
+ db.studyPositions=db.studyPositions||{};db.studyPositions[deck]={cardId:cards[studyIndex].id,index:studyIndex};
 }
 function drawPageIndex(cards){
  const box=document.getElementById('pageIndex');if(!box)return;
@@ -467,32 +484,51 @@ function drawPageIndex(cards){
 function togglePageIndex(){const box=document.getElementById('pageIndex');if(!box)return;box.classList.toggle('hidden');if(!box.classList.contains('hidden'))drawPageIndex(getStudyCards().cards)}
 function goToCard(i){const cards=getStudyCards().cards;if(i>=0&&i<cards.length){studyIndex=i;nextCard()}}
 function nextCard(){
- progressBaskets();
- const {deck,n,cards}=getStudyCards(),box=document.getElementById('studyCard'),prev=document.getElementById('previousBtn'),cont=document.getElementById('continueBtn');
- if(n>1&&!basketIsOpen(deck,n)){
-  current=null;box.innerHTML=`<div class="empty"><strong>${n}. Kese kilitli.</strong><br>Açılması için ${basketCapacity(n)} kartın bu keseye ulaşması gerekiyor. Şu an ${basketCount(deck,n)}/${basketCapacity(n)} kart var.</div>`;
-  document.getElementById('activeRecallBtn').classList.add('hidden');prev.disabled=true;cont.disabled=true;
-  document.getElementById('studyCount').textContent='Kilitli';document.getElementById('studyMeta').textContent=`${n}. Kese · ${basketCount(deck,n)}/${basketCapacity(n)}`;return;
+ ensureLearning();
+ const {deck,cards}=getStudyCards(),box=document.getElementById('studyCard'),prev=document.getElementById('previousBtn'),cont=document.getElementById('continueBtn');
+ const session=learningState(deck),remaining=session?Math.max(0,session.required-session.done):0;
+ const eligible=cards.filter(c=>!c.learned);
+ if(session&&remaining===0){
+  box.innerHTML='<div class="empty"><strong>Tekrar hedefi tamamlandı!</strong><br>Yeni cümle ekleyebilirsin. Tüm kartlar maviye boyandığında yeni öğrenme turu başlayacak.</div>';
+  document.getElementById('recallChoices').classList.add('hidden');prev.disabled=true;cont.disabled=true;
+  document.getElementById('studyCount').textContent='Tamamlandı';document.getElementById('studyMeta').textContent=deckName(deck)+' · Grup tamamlandı';renderLearningStatus();return;
  }
- if(!cards.length){
-  current=null;box.innerHTML=`<div class="empty"><strong>${n}. Kese beklemede.</strong><br>Bu kesenin açılması için ${basketCapacity(n)} cümlenin buraya ulaşması gerekiyor. Şu an ${basketCount(deck,n)}/${basketCapacity(n)} cümle var.</div>`;
-  document.getElementById('activeRecallBtn').classList.add('hidden');prev.disabled=true;cont.disabled=true;
-  document.getElementById('studyCount').textContent='Beklemede';document.getElementById('studyMeta').textContent=`${n}. Kese · ${basketCount(deck,n)}/${basketCapacity(n)}`;return;
+ if(!eligible.length&&cards.length){
+  cards.forEach(c=>c.learned=false);db.learning.cursor[deck]=0;save();
  }
- if(studyIndex>=cards.length)studyIndex=0;
- current=cards[studyIndex];persistStudyPosition(deck,n,cards);document.getElementById('activeRecallBtn').classList.remove('hidden');const revealBtn=document.getElementById('revealBtn');if(revealBtn){revealBtn.textContent='Cevabı göster';revealBtn.disabled=false;}
- prev.disabled=studyIndex===0;cont.disabled=studyIndex===cards.length-1;
- box.innerHTML=`<div class="label">${esc(deckName(deck))} · ${n}. Kese</div><div class="face">${esc(current.front)}</div><div class="small">Sıra: ${studyIndex+1}/${cards.length} · Toplam Active Recall: ${current.count} · Bu kesedeki tekrar: ${basketStage(current)}/10</div><div id="answer" class="answer hidden">${esc(current.back)}</div>`;
- document.getElementById('studyCount').textContent=`${studyIndex+1}. / ${cards.length}. cümle`;
- document.getElementById('studyMeta').textContent=`${n}. Kese · ${basketCount(deck,n)}/${basketCapacity(n)}`;
- const pi=document.getElementById('pageIndex');if(pi&&!pi.classList.contains('hidden'))drawPageIndex(cards);
+ const pool=cards.filter(c=>!c.learned);
+ if(!pool.length){
+  box.innerHTML='<div class="empty">Bu destede henüz cümle yok.</div>';document.getElementById('recallChoices').classList.add('hidden');return;
+ }
+ const cursor=Number(db.learning.cursor[deck])||0;
+ current=pool[cursor%pool.length];studyIndex=cards.findIndex(c=>c.id===current.id);
+ persistStudyPosition(deck,1,cards);
+ document.getElementById('recallChoices').classList.remove('hidden');
+ const revealBtn=document.getElementById('revealBtn');if(revealBtn){revealBtn.textContent='Cevabı göster';revealBtn.disabled=false;}
+ box.innerHTML=`<div class="label">${esc(deckName(deck))} · Active Recall</div><div class="face">${esc(current.front)}</div><div class="small">Toplam Active Recall: ${Number(current.count)||0} · Öğrenilen: ${cards.filter(c=>c.learned).length}/${cards.length}</div><div id="answer" class="answer hidden">${esc(current.back)}</div>`;
+ document.getElementById('studyCount').textContent='Sıradaki cümle · '+(session?session.done+'/'+session.required:'Yeni grup bekleniyor');
+ document.getElementById('studyMeta').textContent=deckName(deck)+' · '+(session?('Active Recall '+session.done+'/'+session.required):'Yeni cümle ekle');
+ prev.disabled=true;cont.disabled=true;
+ const pi=document.getElementById('pageIndex');if(pi&&!pi.classList.contains('hidden'))drawPageIndex(pool);
+ renderLearningStatus();
 }
 function reveal(){const a=document.getElementById('answer'),b=document.getElementById('revealBtn');if(a){a.classList.remove('hidden');if(b){b.textContent='Cevap gösterildi';b.disabled=true;}}}
-function activeRecall(){
+function markRecall(learned){
  if(!current)return;
- const old=Number(current.basket)||1;
- current.count=(Number(current.count)||0)+1;current.basketRepeats=basketStage(current)+1;answered++;
- if(current.basketRepeats>=10){current.basket=old+1;current.basketRepeats=0;current.order=Date.now()+Math.random();progressBaskets();}
+ const deck=recallDeck||document.getElementById('studyDeck')?.value;
+ const session=learningState(deck);
+ if(!session||session.done>=session.required)return alert('Önce yeni cümle ekleyip “Tekrara geç” demelisin.');
+ current.count=(Number(current.count)||0)+1;
+ if(learned)current.learned=true;
+ session.done++;
+ const cards=db.cards.filter(c=>c.deck===deck);
+ const allLearned=cards.length>0&&cards.every(c=>c.learned);
+ if(allLearned){cards.forEach(c=>c.learned=false);db.learning.cursor[deck]=0;}
+ else{
+  const pool=cards.filter(c=>!c.learned);
+  const next=current?pool.findIndex(c=>c.id===current.id):-1;
+  db.learning.cursor[deck]=next>=0?(next+1)%Math.max(1,pool.length):0;
+ }
  save();nextCard();
 }
 function continueCard(){const cards=getStudyCards().cards;if(studyIndex<cards.length-1){studyIndex++;nextCard()}}
@@ -507,9 +543,9 @@ function importData(ev){
 }
 function resetAll(){if(confirm('Tüm kartlar ve desteler kalıcı olarak silinsin mi?')){db=fresh();save()}}
 function renderHome(){
- const total=db.cards.length,progressed=db.cards.filter(c=>Number(c.basket||1)>1).length;
- document.getElementById('stats').innerHTML=[['Toplam kart',total],['İlk keseyi geçen',progressed],['Toplam Active Recall',db.cards.reduce((a,c)=>a+(Number(c.count)||0),0)]].map(([a,b])=>`<div class="stat"><span>${a}</span><strong>${b}</strong></div>`).join('');
- document.getElementById('homeProgress').innerHTML='<p class="muted">Cümleler sırayla çalışılır. Her cümle bulunduğu kesede 10 Active Recall tamamlayınca bir sonraki keseye geçer.</p>';
+ const total=db.cards.length,learned=db.cards.filter(c=>c.learned).length;
+ document.getElementById('stats').innerHTML=[['Toplam kart',total],['Bu tur öğrenilen',learned],['Toplam Active Recall',db.cards.reduce((a,c)=>a+(Number(c.count)||0),0)]].map(([a,b])=>`<div class="stat"><span>${a}</span><strong>${b}</strong></div>`).join('');
+ document.getElementById('homeProgress').innerHTML='<p class="muted">Tek bir cümle listesi kullanılır. Her yeni kart 4 Active Recall yükümlülüğü oluşturur. “Maviye boya” seçilen kart mevcut turda atlanır.</p>';
 }
 function renderCards(){
  const root=document.getElementById('cardDeckOverview');if(!root)return;
@@ -613,24 +649,9 @@ function deleteDeck(id){
  db.cards=db.cards.filter(c=>c.deck!==id);db.decks=db.decks.filter(x=>x.id!==id);
  Object.keys(db.unlockedBaskets).filter(k=>k.startsWith(id+'_')).forEach(k=>delete db.unlockedBaskets[k]);save();
 }
-function renderPhases(){
- const sel=document.getElementById('phaseDeck');
- const previous=sel?.value;
- if(sel){sel.innerHTML=options(previous);if(previous&&db.decks.some(d=>d.id===previous))sel.value=previous;}
- const deck=sel?.value||db.decks[0]?.id;
- if(!db.decks.some(d=>d.id===deck)){document.getElementById('phaseList').innerHTML='<div class="empty">Önce bir deste oluştur.</div>';return;}
- const nums=db.cards.filter(c=>c.deck===deck).map(c=>Math.max(1,Number(c.basket)||1));
- const max=Math.max(1,...nums);
- let out='';
- for(let n=1;n<=max;n++){
-  const count=basketCount(deck,n),cap=basketCapacity(n),open=basketIsOpen(deck,n);
-  out+=`<div class="item" style="display:block"><div class="row between"><strong>${n}. Kese</strong><span class="pill">${count}/${cap}</span></div><div class="progress sectiongap"><i style="width:${Math.min(100,count/cap*100)}%"></i></div><p class="small">${open?'Çalışmaya açık':'Kilitli · Kapasite dolunca açılacak'} · Kart başına 10 Active Recall</p></div>`;
- }
- document.getElementById('phaseList').innerHTML=out||'<div class="empty">Bu destede henüz kart yok.</div>';
-}
 function options(selected){return db.decks.map(d=>`<option value="${d.id}" ${d.id===selected?'selected':''}>${esc(d.name)}</option>`).join('')}
-function fillSelects(){['studyDeck','cardDeck','phaseDeck'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const old=el.value;el.innerHTML=options(old||'default');if(!db.decks.some(d=>d.id===el.value))el.selectedIndex=0})}
-function renderAll(){ensureBatches();fillSelects();renderHome();renderCards();renderDecks();renderPhases()}
+function fillSelects(){['studyDeck','cardDeck'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const old=el.value;el.innerHTML=options(old||'default');if(!db.decks.some(d=>d.id===el.value))el.selectedIndex=0})}
+function renderAll(){ensureBatches();ensureLearning();fillSelects();renderHome();renderCards();renderDecks();renderLearningStatus();renderRecallMultiplier()}
 function showTab(id){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hidden',x.id!==id));document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));renderAll();if(id==='study')startStudy()}
 // Tarayıcı sekmesi/penceresi kapatılırken yerel değişiklikler için yerleşik uyarıyı göster.
 // Tarayıcılar bu uyarının metnini ve düğmelerini kendileri belirler; özel bir buton eklenemez.
