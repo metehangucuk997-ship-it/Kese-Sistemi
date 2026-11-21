@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#172554">
-<title>KESE v14.1 | Tek Liste Active Recall</title>
+<title>KESE v14.9 | Deste Bazlı Active Recall Hedefi</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--bg:#f4f6fb;--panel:#fff;--ink:#172033;--muted:#68738a;--line:#e4e8f0;--blue:#3157d5;--blue2:#eaf0ff;--green:#16845b;--red:#c34252;--amber:#a56a12;--shadow:0 10px 30px rgba(28,42,80,.07)}
@@ -54,7 +54,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </head>
 <body>
 <div id="storageLoading" style="position:fixed;inset:0;z-index:9999;background:#f4f6fb;display:grid;place-items:center;padding:24px;text-align:center;color:#172033;font:600 16px system-ui">KESE verileri güvenli şekilde yükleniyor…</div>
-<header><div><h1>◈ KESE</h1><small>Tek liste · Maviye Boya Active Recall · v14.2</small></div><div class="row"><small id="syncStatus">Bulut bağlantısı hazırlanıyor…</small><button id="manualSyncBtn" class="secondary" onclick="manualSync()" disabled>↻ Senkronize Et</button><button id="syncExitBtn" class="secondary" onclick="syncAndExit()" disabled>☁ Senkronize Et ve Çık</button><button class="secondary" onclick="showTab('settings')">⚙ Ayarlar</button></div></header>
+<header><div><h1>◈ KESE</h1><small>Tek liste · Maviye Boya Active Recall · v14.8</small></div><div class="row"><small id="syncStatus">Bulut bağlantısı hazırlanıyor…</small><button id="manualSyncBtn" class="secondary" onclick="manualSync()" disabled>↻ Senkronize Et</button><button id="syncExitBtn" class="secondary" onclick="syncAndExit()" disabled>☁ Senkronize Et ve Çık</button><button class="secondary" onclick="showTab('settings')">⚙ Ayarlar</button></div></header>
 <div id="authOverlay" class="auth-overlay hidden">
  <div class="auth-card">
   <h2>KESE hesabın</h2>
@@ -82,9 +82,10 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <section id="study" class="view hidden">
 <div class="study">
 <div class="row between"><div><h2>Çalışma oturumu</h2><div class="muted" id="studyMeta">Deste seçilmedi</div></div><select id="studyDeck" style="max-width:190px" onchange="startStudy()"></select></div>
+<div class="sectiongap small" id="studyModeHelp">Sıralı tur: Mavi kartlar atlanır, beyaz kartlar kendi sıralarında gösterilir. Deste sonuna gelince yeni tur başlar.</div>
 <div class="cardbox studycard sectiongap" id="studyCard"><div class="empty">Çalışmaya başlamak için bir deste seç.</div></div>
 <div class="sectiongap"><button class="secondary" id="revealBtn" style="width:100%;padding:14px" onclick="reveal()">Cevabı göster</button></div>
-<div class="row between sectiongap"><button class="secondary" id="previousBtn" onclick="previousCard()">← Önceki</button><span class="small" id="studyCount"></span><button class="secondary" id="continueBtn" onclick="continueCard()">Devam et →</button></div>
+<div class="row between sectiongap"><button class="secondary" id="previousBtn" onclick="previousCard()">← Önceki</button><span class="small" id="studyPosition" style="font-weight:750;white-space:nowrap">0/0</span><span class="small" id="studyCount"></span><button class="secondary" id="continueBtn" onclick="continueCard()">Devam et →</button></div>
 <div class="rating sectiongap" id="recallChoices">
 <button class="ghost" onclick="markRecall(false)">Beyaz kalsın</button>
 <button onclick="markRecall(true)">Maviye boya</button>
@@ -95,7 +96,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </div>
 </section>
 <section id="cards" class="view hidden">
-<div class="panel"><h2>Kart oluştur</h2><div class="field"><label>Deste</label><select id="cardDeck"></select></div><div class="field"><label>Ön yüz / Soru</label><textarea id="front" placeholder="Örneğin: Router nedir?"></textarea></div><div class="field"><label>Arka yüz / Cevap</label><textarea id="back" placeholder="Cevabı yaz..."></textarea></div><div class="row"><button onclick="addCard()">Kart ekle</button><button class="secondary" onclick="bulkToggle()">Toplu kart ekle</button></div>
+<div class="panel"><h2>Kart oluştur</h2><div class="field"><label>Deste</label><select id="cardDeck" onchange="renderLearningStatus()"></select></div><div class="field"><label>Ön yüz / Soru</label><textarea id="front" placeholder="Örneğin: Router nedir?"></textarea></div><div class="field"><label>Arka yüz / Cevap</label><textarea id="back" placeholder="Cevabı yaz..."></textarea></div><div class="row"><button onclick="addCard()">Kart ekle</button><button class="secondary" onclick="bulkToggle()">Toplu kart ekle</button></div>
 <div class="import-area sectiongap"><h3>Anki kartlarını aktar</h3><p class="small">Anki’den dışa aktardığın .txt dosyasını seç. Dosyadaki tüm kartlar yukarıda seçili olan desteye mevcut kartların üzerine eklenecek. Eski kartlar silinmez.</p><label class="import-button">📥 TXT dosyası seç <input type="file" accept=".txt,text/plain" onchange="importTxt(event)"></label><p class="small">TAB ile ayrılmış dosyalarda ilk sütun soru, ikinci sütun cevap olarak alınır.</p></div>
 <div id="bulkBox" class="hidden sectiongap"><p class="small">Her satıra bir kart yaz. Soru ve cevap arasına TAB koy.</p><textarea id="bulkText" placeholder="Router nedir?&#9;Ağları birbirine bağlar."></textarea><button onclick="bulkAdd()">Toplu eklemeyi tamamla</button></div></div>
 <div class="panel sectiongap" id="newSentenceBatchPanel">
@@ -126,7 +127,7 @@ let cloudPollTimer=null, cloudAutoSyncTimer=null, lastCloudUpdatedAt=null, cloud
 let idb=null, storageMode='indexeddb', saveQueue=Promise.resolve();
 const CLOUD_AUTO_SYNC_MS=12*60*60*1000;
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
-function fresh(){return {decks:[{id:'default',name:'Varsayılan deste'}],cards:[],batches:[],unlockedBaskets:{},studyPositions:{},learning:{pending:{},sessions:{},cursor:{},recallMultiplier:4}}}
+function fresh(){return {decks:[{id:'default',name:'Varsayılan deste'}],cards:[],batches:[],unlockedBaskets:{},studyPositions:{},learning:{pending:{},sessions:{},cursor:{},position:{},whiteFirst:{},sequenceVersion:1,recallMultiplier:4}}}
 function loadLegacy(){
  try{
   const x=JSON.parse(localStorage.getItem(KEY));
@@ -335,7 +336,7 @@ function ensureBatches(){
 }
 function ensureLearning(){
  db.learning=db.learning||{pending:{},sessions:{},cursor:{}};
- db.learning.pending=db.learning.pending||{};db.learning.sessions=db.learning.sessions||{};db.learning.cursor=db.learning.cursor||{};if(!Number.isFinite(Number(db.learning.recallMultiplier))||Number(db.learning.recallMultiplier)<4)db.learning.recallMultiplier=4;
+ db.learning.pending=db.learning.pending||{};db.learning.sessions=db.learning.sessions||{};db.learning.cursor=db.learning.cursor||{};db.learning.position=db.learning.position||{};db.learning.whiteFirst=db.learning.whiteFirst||{};if(!Number.isFinite(Number(db.learning.recallMultiplier))||Number(db.learning.recallMultiplier)<4)db.learning.recallMultiplier=4;
  db.cards.forEach(c=>{if(typeof c.learned!=='boolean')c.learned=false;});
 }
 function learningState(deck){
@@ -343,12 +344,21 @@ function learningState(deck){
  return db.learning.sessions[deck]||null;
 }
 function pendingCards(deck){ensureLearning();return db.learning.pending[deck]||[];}
+function deckCardEntryLock(deck){
+ const session=learningState(deck);
+ return !!(session&&session.done<session.required);
+}
+function requireCardEntryUnlocked(deck){
+ if(!deckCardEntryLock(deck))return true;
+ const session=learningState(deck),remaining=Math.max(0,session.required-session.done);
+ alert('Bu sorumlulukta yeni kart eklemek için önce '+remaining+' Active Recall tamamlamalısın.');
+ return false;
+}
 function setRecallMultiplier(value){const n=Math.max(4,Math.min(20,Math.floor(Number(value)||4)));ensureLearning();db.learning.recallMultiplier=n;save();}
 function renderRecallMultiplier(){ensureLearning();const el=document.getElementById('recallMultiplier');if(el)el.value=String(db.learning.recallMultiplier);const status=document.getElementById('recallMultiplierStatus');if(status)status.textContent='Yeni gruplarda her cümle '+db.learning.recallMultiplier+' Active Recall gerektirecek. Devam eden gruplar etkilenmez.';}
 function addPendingCards(deck,cards){
  ensureLearning();
- const session=db.learning.sessions[deck];
- if(session&&session.done<session.required) return alert('Tekrar etmen gereken en az '+(session.required-session.done)+' cümlen daha var.');
+ if(!requireCardEntryUnlocked(deck))return;
  db.learning.pending[deck]=[...pendingCards(deck),...cards];
  save();
 }
@@ -356,8 +366,7 @@ function commitNewBatch(){
  const deck=document.getElementById('cardDeck').value;
  const pending=pendingCards(deck);
  if(!pending.length)return alert('Önce yeni cümle eklemelisin.');
- const session=learningState(deck);
- if(session&&session.done<session.required)return alert('Tekrar etmen gereken en az '+(session.required-session.done)+' cümlen daha var.');
+ if(!requireCardEntryUnlocked(deck))return;
  const added=pending.map((c,i)=>({...c,learned:false,cycle:0,order:Date.now()+i}));
  db.cards.push(...added);
  db.learning.pending[deck]=[];
@@ -371,21 +380,36 @@ function commitNewBatch(){
 }
 function renderLearningStatus(){
   ensureLearning();
-  const deck=document.getElementById('cardDeck')?.value||db.decks[0]?.id;
-  const pending=pendingCards(deck),session=learningState(deck);
-  const remaining=session?Math.max(0,session.required-session.done):0;
+  // Kart ekleme alanındaki kilit ve bekleyen grup yalnızca kart ekleme destesine aittir.
+  const cardDeck=document.getElementById('cardDeck')?.value||db.decks[0]?.id;
+  const pending=pendingCards(cardDeck),cardSession=learningState(cardDeck);
+  const cardRemaining=cardSession?Math.max(0,cardSession.required-cardSession.done):0;
   const box=document.getElementById('pendingBatchStatus'),btn=document.getElementById('startBatchBtn');
   const multiplier=Math.max(4,Number(db.learning.recallMultiplier)||4);
-  if(box)box.textContent=pending.length+' yeni cümle bekliyor · '+(pending.length*multiplier)+' minimum Active Recall gerekecek'+(remaining?' · Önce '+remaining+' tekrar tamamlanmalı':'');
-  if(btn){btn.disabled=!pending.length||remaining>0;btn.textContent='Tekrara geç';}
-  const locked=remaining>0;
-  ['front','back'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=locked;});
-  const addButtons=document.querySelectorAll('#cards button[onclick="addCard()"],#cards button[onclick="bulkToggle()"],#cards .import-button input');
+  if(box)box.textContent=pending.length+' yeni cümle bekliyor · '+(pending.length*multiplier)+' minimum Active Recall gerekecek'+(cardRemaining?' · Önce '+cardRemaining+' tekrar tamamlanmalı':'');
+  if(btn){btn.disabled=!pending.length||cardRemaining>0;btn.textContent='Tekrara geç';}
+  const locked=deckCardEntryLock(cardDeck);
+  ['front','back','bulkText'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=locked;});
+  const addButtons=document.querySelectorAll('#cards button[onclick="addCard()"],#cards button[onclick="bulkToggle()"],#cards button[onclick="bulkAdd()"],#cards .import-button input');
   addButtons.forEach(el=>{el.disabled=locked;el.style.opacity=locked?'.45':'';});
+  const bulkBox=document.getElementById('bulkBox');
+  if(bulkBox)bulkBox.style.opacity=locked?'.55':'';
+
+
+  // Çalışma ekranındaki hedef, ekleme ekranından bağımsız olarak seçili çalışma destesinden okunur.
+  const studyDeck=document.getElementById('studyDeck')?.value||db.decks[0]?.id;
+  const studySession=learningState(studyDeck);
   const progress=document.getElementById('recallProgress');
   if(progress){
-    if(session)progress.textContent='Active Recall: '+session.done+'/'+session.required+(remaining?' · Minimum için kalan: '+remaining:' · Minimum tamamlandı, sınırsız tekrar açık');
-    else progress.textContent=pending.length?'Yeni cümleleri önce “Tekrara geç” ile kaydetmelisin.':'Serbest çalışma modu · Yeni cümle eklemeden istediğin kadar tekrar yapabilirsin.';
+    if(studySession){
+      const remaining=Math.max(0,studySession.required-studySession.done);
+      progress.classList.remove('hidden');
+      progress.textContent='Active Recall: '+studySession.done+'/'+studySession.required+(remaining?' · Minimum için kalan: '+remaining:' · Minimum tamamlandı, sınırsız tekrar açık');
+    }else{
+      // Bu destede bir minimum tekrar yükümlülüğü yoksa başka destenin hedefini gösterme.
+      progress.classList.add('hidden');
+      progress.textContent='';
+    }
   }
 }
 function save(){
@@ -413,7 +437,7 @@ function addDeck(){
 function addCard(){
  const deck=document.getElementById('cardDeck').value,front=document.getElementById('front').value.trim(),back=document.getElementById('back').value.trim();
  if(!front||!back)return alert('Soru ve cevabı doldur.');
- const session=learningState(deck);if(session&&session.done<session.required)return alert('Tekrar etmen gereken en az '+(session.required-session.done)+' cümlen daha var.');
+ if(!requireCardEntryUnlocked(deck))return;
  addPendingCards(deck,[{id:uid(),deck,front,back,count:0,basket:1,basketRepeats:0,order:Date.now(),created:Date.now()}]);
  document.getElementById('front').value='';document.getElementById('back').value='';
 }
@@ -425,7 +449,9 @@ function plainImportedField(value){
 }
 function importTxt(ev){
  const file=ev.target.files&&ev.target.files[0];if(!file)return;
- const deck=document.getElementById('cardDeck').value,reader=new FileReader();
+ const deck=document.getElementById('cardDeck').value;
+ if(!requireCardEntryUnlocked(deck)){ev.target.value='';return;}
+ const reader=new FileReader();
  reader.onload=()=>{
   try{
    const lines=String(reader.result||'').replace(/^\uFEFF/,'').split(/\r\n|\n|\r/).filter(x=>x.trim()&&!x.trimStart().startsWith('#'));
@@ -448,7 +474,9 @@ function importTxt(ev){
  reader.readAsText(file,'UTF-8');
 }
 function bulkAdd(){
- const deck=document.getElementById('cardDeck').value,lines=document.getElementById('bulkText').value.split(/\r?\n/);let n=0;const staged=[];
+ const deck=document.getElementById('cardDeck').value;
+ if(!requireCardEntryUnlocked(deck))return;
+ const lines=document.getElementById('bulkText').value.split(/\r?\n/);let n=0;const staged=[];
  lines.forEach(line=>{const p=line.split('\t');if(p.length>=2&&p[0].trim()&&p.slice(1).join('\t').trim()){staged.push({id:uid(),deck,front:p[0].trim(),back:p.slice(1).join('\t').trim(),count:0,basket:1,basketRepeats:0,order:Date.now()+n,created:Date.now()+n});n++;}});
  document.getElementById('bulkText').value='';addPendingCards(deck,staged);alert(n+' kart yeni cümle grubuna eklendi.');
 }
@@ -487,29 +515,73 @@ function drawPageIndex(cards){
 }
 function togglePageIndex(){const box=document.getElementById('pageIndex');if(!box)return;box.classList.toggle('hidden');if(!box.classList.contains('hidden'))drawPageIndex(getStudyCards().cards)}
 function goToCard(i){const cards=getStudyCards().cards;if(i>=0&&i<cards.length){studyIndex=i;nextCard()}}
+function renderStudyModeButton(){
+  const help=document.getElementById('studyModeHelp');
+  if(help)help.textContent='Sıralı tur: Mavi kartlar atlanır, beyaz kartlar kendi sıralarında gösterilir. Deste sonuna gelince yeni tur başlar.';
+}
+function migrateSequentialPosition(deck,cards){
+  ensureLearning();
+  if(db.learning.sequenceVersion===1)return;
+  db.learning.position=db.learning.position||{};
+  db.studyPositions=db.studyPositions||{};
+  // Older versions saved the currently displayed card as the pointer.
+  // Convert that value to the NEXT card so it is not repeated after reload.
+  for(const d of (db.decks||[])){
+    const list=db.cards.filter(c=>c.deck===d.id).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
+    if(!list.length){db.learning.position[d.id]=0;continue;}
+    const saved=db.studyPositions[d.id];
+    let idx=saved?.cardId?list.findIndex(c=>c.id===saved.cardId):Number(saved?.index);
+    if(!Number.isFinite(idx)||idx<0)idx=0;
+    db.learning.position[d.id]=(Math.floor(idx)+1)%list.length;
+  }
+  db.learning.sequenceVersion=1;
+  save();
+}
 function nextCard(){
   ensureLearning();
   const {deck,cards}=getStudyCards(),box=document.getElementById('studyCard'),prev=document.getElementById('previousBtn'),cont=document.getElementById('continueBtn');
   const session=learningState(deck);
-  const eligible=cards.filter(c=>!c.learned);
-  if(!eligible.length&&cards.length){
-    cards.forEach(c=>c.learned=false);db.learning.cursor[deck]=0;save();
-  }
-  const pool=cards.filter(c=>!c.learned);
+  if(!cards.length){current=null;box.innerHTML='<div class="empty">Bu destede henüz cümle yok.</div>';document.getElementById('recallChoices').classList.add('hidden');renderStudyModeButton();return;}
+  migrateSequentialPosition(deck,cards);
+  let pool=cards.filter(c=>!c.learned);
   if(!pool.length){
-    box.innerHTML='<div class="empty">Bu destede henüz cümle yok.</div>';document.getElementById('recallChoices').classList.add('hidden');return;
+    // Every card was learned: start a completely fresh round from card 1.
+    cards.forEach(c=>c.learned=false);
+    db.learning.position[deck]=0;
+    db.learning.cursor[deck]=0;
+    save();
+    pool=cards.slice();
   }
-  const cursor=Number(db.learning.cursor[deck])||0;
-  current=pool[cursor%pool.length];studyIndex=cards.findIndex(c=>c.id===current.id);
+  let start=Number(db.learning.position[deck]);
+  if(!Number.isFinite(start)||start<0)start=0;
+  start=Math.min(cards.length,Math.floor(start));
+  let found=null;
+  // Finish scanning to the end of the deck before wrapping to earlier white cards.
+  for(let i=start;i<cards.length;i++){
+    if(!cards[i].learned){found=cards[i];break;}
+  }
+  if(!found){
+    for(let i=0;i<start;i++){
+      if(!cards[i].learned){found=cards[i];break;}
+    }
+  }
+  current=found;
+  if(!current){box.innerHTML='<div class="empty">Bu destede henüz cümle yok.</div>';document.getElementById('recallChoices').classList.add('hidden');renderStudyModeButton();return;}
+  studyIndex=cards.findIndex(c=>c.id===current.id);
+  // Do not move the pointer while merely displaying a card. It advances only
+  // after the user rates the current card in markRecall().
   persistStudyPosition(deck,1,cards);
   document.getElementById('recallChoices').classList.remove('hidden');
   const revealBtn=document.getElementById('revealBtn');if(revealBtn){revealBtn.textContent='Cevabı göster';revealBtn.disabled=false;}
   box.innerHTML=`<div class="label">${esc(deckName(deck))} · Active Recall</div><div class="face">${esc(current.front)}</div><div class="small">Toplam Active Recall: ${Number(current.count)||0} · Öğrenilen: ${cards.filter(c=>c.learned).length}/${cards.length}</div><div id="answer" class="answer hidden">${esc(current.back)}</div>`;
   const remaining=session?Math.max(0,session.required-session.done):0;
   document.getElementById('studyCount').textContent='Active Recall · '+(session?session.done+'/'+session.required:'Serbest çalışma');
+  const positionLabel=document.getElementById('studyPosition');
+  if(positionLabel)positionLabel.textContent=(studyIndex+1)+'/'+cards.length;
   document.getElementById('studyMeta').textContent=deckName(deck)+' · '+(session?(remaining?'Minimum tekrar '+session.done+'/'+session.required:'Minimum tamamlandı · sınırsız tekrar'):'Serbest çalışma');
   prev.disabled=true;cont.disabled=true;
-  const pi=document.getElementById('pageIndex');if(pi&&!pi.classList.contains('hidden'))drawPageIndex(pool);
+  const pi=document.getElementById('pageIndex');if(pi&&!pi.classList.contains('hidden'))drawPageIndex(cards);
+  renderStudyModeButton();
   renderLearningStatus();
 }
 function reveal(){const a=document.getElementById('answer'),b=document.getElementById('revealBtn');if(a){a.classList.remove('hidden');if(b){b.textContent='Cevap gösterildi';b.disabled=true;}}}
@@ -526,13 +598,18 @@ function markRecall(learned){
   current.count=(Number(current.count)||0)+1;
   if(learned)current.learned=true;
   if(session)session.done++;
-  const cards=db.cards.filter(c=>c.deck===deck);
+  // Keep position indexes aligned with the exact sorted order used by nextCard().
+  const cards=getStudyCards().cards;
   const allLearned=cards.length>0&&cards.every(c=>c.learned);
-  if(allLearned){cards.forEach(c=>c.learned=false);db.learning.cursor[deck]=0;}
-  else{
-    const pool=cards.filter(c=>!c.learned);
-    const next=current?pool.findIndex(c=>c.id===current.id):-1;
-    db.learning.cursor[deck]=next>=0?(next+1)%Math.max(1,pool.length):0;
+  const currentIndex=cards.findIndex(c=>c.id===current.id);
+  if(allLearned){
+    cards.forEach(c=>c.learned=false);
+    db.learning.cursor[deck]=0;
+    db.learning.position[deck]=0;
+  }else{
+    // Advance exactly one position in the original deck order. White cards
+    // remain queued for the next pass; they are never reinserted mid-pass.
+    db.learning.position[deck]=(currentIndex+1)%Math.max(1,cards.length);
   }
   save();nextCard();
 }
