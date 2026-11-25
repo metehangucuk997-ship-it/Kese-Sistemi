@@ -109,7 +109,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
  </div>
 </section>
 <section id="settings" class="view hidden">
-<div class="panel"><h2>Genel tekrar hedefi</h2><p class="muted">Bu hedef bütün keselerde geçerlidir. Değişiklik yalnızca o andan itibaren geçerli olur. Önceki keselerde tamamlanmış tekrarlar için geriye dönük ek tekrar istenmez.</p><div class="field"><label>Her kartın kese başına tekrar sayısı</label><select id="globalBasketThreshold" onchange="setGlobalBasketThreshold(this.value)"><option value="5">5 tekrar</option><option value="10">10 tekrar</option><option value="15">15 tekrar</option><option value="20">20 tekrar</option><option value="25">25 tekrar</option><option value="30">30 tekrar</option><option value="40">40 tekrar</option><option value="50">50 tekrar</option></select></div><div id="basketThresholdStatus" class="note sectiongap">Varsayılan hedef: 15 tekrar.</div></div>
+<div class="panel"><h2>Varsayılan tekrar hedefi</h2><p class="muted">Yeni desteler ve kendi hedefi belirlenmemiş desteler için kullanılır. Her destenin tekrar sayısını ayrıca Destelerim bölümünden değiştirebilirsin. Değişiklik geriye dönük tekrar borcu oluşturmaz.</p><div class="field"><label>Her kartın kese başına tekrar sayısı</label><select id="globalBasketThreshold" onchange="setGlobalBasketThreshold(this.value)"><option value="5">5 tekrar</option><option value="10">10 tekrar</option><option value="15">15 tekrar</option><option value="20">20 tekrar</option><option value="25">25 tekrar</option><option value="30">30 tekrar</option><option value="40">40 tekrar</option><option value="50">50 tekrar</option></select></div><div id="basketThresholdStatus" class="note sectiongap">Varsayılan hedef: 15 tekrar.</div></div>
 <div class="panel sectiongap"><h2>Yedekleme</h2><p class="muted">Kartların, destelerin ve öğrenme ilerlemenin JSON yedeğini alabilir veya geri yükleyebilirsin.</p><div class="row"><button onclick="exportData()">JSON yedeği indir</button><label class="secondary" style="padding:11px 14px;border-radius:12px;font-weight:650;cursor:pointer">Yedek içe aktar <input type="file" accept=".json,application/json" style="display:none" onchange="importData(event)"></label></div><div class="note sectiongap">Veriler önce bu cihazda IndexedDB içine kaydedilir, ardından Supabase hesabına eşitlenir. Mac ve Android'de aynı hesapla giriş yap. Önemli veriler için JSON yedeği almaya devam et.</div><div class="sectiongap"><button class="secondary" onclick="signOut()">Hesaptan çıkış yap</button></div><div class="sectiongap"><button class="danger" onclick="resetAll()">Bütün verileri sil</button></div></div>
 </section>
 </main>
@@ -328,6 +328,7 @@ function basketCapacity(n){return 100*Math.pow(2,n-1)}
 function basketCount(deck,n){return db.cards.filter(c=>c.deck===deck&&Number(c.basket??1)===n).length}
 function basketIsOpen(deck,n){return n===1||!!db.unlockedBaskets[deck+'_'+n]||basketCount(deck,n)>=basketCapacity(n)}
 function basketThreshold(){return Math.max(1,Math.min(100,Math.floor(Number(db.basketSettings?.threshold)||15)))}
+function deckBasketThreshold(deck){const d=db.decks.find(x=>x.id===deck);return Math.max(1,Math.min(100,Math.floor(Number(d?.basketThreshold)||basketThreshold())))}
 function ensureBatches(){
  db.basketSettings=db.basketSettings||{};
  db.basketSettings.threshold=Math.max(1,Math.min(100,Math.floor(Number(db.basketSettings.threshold)||15)));
@@ -353,12 +354,18 @@ function setGlobalBasketThreshold(value){
  save();renderAll();
  if(!document.getElementById('study').classList.contains('hidden'))startStudy();
 }
+function setDeckBasketThreshold(id,value){
+ const d=db.decks.find(x=>x.id===id);if(!d)return;
+ d.basketThreshold=Math.max(1,Math.min(100,Math.floor(Number(value)||basketThreshold())));
+ save();
+ if(!document.getElementById('study').classList.contains('hidden')&&(document.getElementById('studyDeck')?.value||db.decks[0]?.id)===id)startStudy();
+}
 function renderBasketSettings(){
  const el=document.getElementById('globalBasketThreshold');if(el)el.value=String(basketThreshold());
- const status=document.getElementById('basketThresholdStatus');if(status)status.textContent='Şu an bütün keselerde hedef '+basketThreshold()+' tekrar. Değişiklik geriye dönük tekrar borcu oluşturmaz.';
+ const status=document.getElementById('basketThresholdStatus');if(status)status.textContent='Varsayılan hedef '+basketThreshold()+' tekrar. Değişiklik geriye dönük tekrar borcu oluşturmaz.';
 }
 function ensureLearning(){db.learning=db.learning||{pending:{},sessions:{},cursor:{}};db.learning.pending=db.learning.pending||{};db.learning.sessions=db.learning.sessions||{};db.learning.cursor=db.learning.cursor||{};}
-function renderLearningStatus(){const el=document.getElementById('recallProgress');if(el)el.textContent='Her Active Recall tamamlandığında kartın bulunduğu kesedeki sayacı bir artar. Hedef: '+basketThreshold()+' tekrar.';}
+function renderLearningStatus(){const el=document.getElementById('recallProgress');const deck=document.getElementById('studyDeck')?.value||db.decks[0]?.id;if(el)el.textContent='Her Active Recall tamamlandığında kartın bulunduğu kesedeki sayacı bir artar. Bu deste için hedef: '+deckBasketThreshold(deck)+' tekrar.';}
 function save(){
  ensureBatches();
  localRevision++;
@@ -479,7 +486,7 @@ function markRecall(){
  const oldBasket=Math.max(1,Number(current.basket)||1);current.count=(Number(current.count)||0)+1;current.basketRepeats=(Number(current.basketRepeats)||0)+1;
  const pos=db.studyPositions[deck]||{round:1,cursor:0};let round=Math.max(1,Number(pos.round)||1),cursor=Math.max(0,Number(pos.cursor)||0);
  const oldPool=db.cards.filter(c=>c.deck===deck&&Number(c.basket??1)===oldBasket).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
- let promoted=false;if(current.basketRepeats>=basketThreshold()){current.basket=oldBasket+1;current.basketRepeats=0;current.order=Date.now();promoted=true;}
+ let promoted=false;if(current.basketRepeats>=deckBasketThreshold(deck)){current.basket=oldBasket+1;current.basketRepeats=0;current.order=Date.now();promoted=true;}
  if(promoted){const remaining=oldPool.filter(c=>c.id!==current.id);db.studyPositions[deck]={round:Math.max(1,Math.min(round-1,remaining.length)||1),cursor:0};}
  else{cursor++;if(cursor>=Math.min(round,oldPool.length)){round=Math.min(oldPool.length,round+1);cursor=0;}db.studyPositions[deck]={round,cursor};}
  current=null;save();nextCard();
@@ -614,7 +621,11 @@ function renderBaskets(){
 }
 
 function renderDecks(){
- document.getElementById('deckList').innerHTML=db.decks.map(d=>{const n=db.cards.filter(c=>c.deck===d.id).length;return `<div class="item"><div><strong>${esc(d.name)}</strong><p>${n} kart</p></div><div class="row"><button class="ghost" onclick="renameDeck('${d.id}')">Adını değiştir</button><button class="danger" onclick="deleteDeck('${d.id}')">Desteyi sil</button></div></div>`}).join('')||'<div class="empty">Henüz deste yok.</div>';
+ const repeatOptions=[5,7,10,15,20,25,30,40,50,75,100];
+ document.getElementById('deckList').innerHTML=db.decks.map(d=>{
+  const n=db.cards.filter(c=>c.deck===d.id).length,threshold=deckBasketThreshold(d.id);
+  return `<div class="item"><div style="min-width:150px;flex:1"><strong>${esc(d.name)}</strong><p>${n} kart</p><label class="small" for="deckThreshold_${d.id}">Tekrar hedefi · her kese</label><select id="deckThreshold_${d.id}" onchange="setDeckBasketThreshold('${d.id}',this.value)" style="max-width:190px;margin-top:5px">${repeatOptions.map(v=>`<option value="${v}" ${v===threshold?'selected':''}>${v} tekrar</option>`).join('')}</select></div><div class="row"><button class="ghost" onclick="renameDeck('${d.id}')">Adını değiştir</button><button class="danger" onclick="deleteDeck('${d.id}')">Desteyi sil</button></div></div>`;
+ }).join('')||'<div class="empty">Henüz deste yok.</div>';
 }
 function renameDeck(id){const d=db.decks.find(x=>x.id===id);if(!d)return;const n=prompt('Yeni deste adı:',d.name);if(n===null)return;if(!n.trim())return alert('Deste adı boş olamaz.');d.name=n.trim();save()}
 function deleteDeck(id){
